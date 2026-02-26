@@ -1,0 +1,75 @@
+<?php
+require_once __DIR__ . '/../layout/header.php';
+require_once __DIR__ . '/../layout/sidebar.php';
+require_once __DIR__ . '/../core/db.php';
+
+if (!Session::exists('user_id')) {
+    header('Location: login.php');
+    exit();
+}
+
+$db = DB::getInstance();
+$empresa_id = Session::get('empresa_id');
+
+$db->query("SELECT * FROM fornecedores WHERE empresa_id = ? ORDER BY nome_empresa ASC", [$empresa_id]);
+$fornecedores = $db->results();
+
+$success_message = Session::flash('success_message');
+?>
+
+<main class="flex-1 p-6 bg-gray-100">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Cadastro de Fornecedores</h1>
+        <a href="fornecedor_form.php" class="bg-erp-blue-600 hover:bg-erp-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors">
+            <i class="fas fa-plus mr-2"></i> Adicionar Fornecedor
+        </a>
+    </div>
+
+    <?php if ($success_message): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span class="block sm:inline"><?php echo $success_message; ?></span>
+        </div>
+    <?php endif; ?>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                    <tr>
+                        <th class="py-3 px-6 text-left">Empresa</th>
+                        <th class="py-3 px-6 text-left">Telefone</th>
+                        <th class="py-3 px-6 text-left">Email</th>
+                        <th class="py-3 px-6 text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="text-gray-600 text-sm font-light">
+                    <?php if (count($fornecedores) > 0): ?>
+                        <?php foreach ($fornecedores as $fornecedor): ?>
+                            <tr class="border-b border-gray-200 hover:bg-gray-100">
+                                <td class="py-3 px-6 text-left"><?php echo htmlspecialchars($fornecedor->nome_empresa); ?></td>
+                                <td class="py-3 px-6 text-left"><?php echo htmlspecialchars($fornecedor->telefone); ?></td>
+                                <td class="py-3 px-6 text-left"><?php echo htmlspecialchars($fornecedor->email); ?></td>
+                                <td class="py-3 px-6 text-center">
+                                    <div class="flex item-center justify-center">
+                                        <a href="fornecedor_form.php?id=<?php echo $fornecedor->id; ?>" class="w-8 h-8 flex items-center justify-center rounded-full bg-blue-200 text-blue-600 hover:bg-blue-300 mr-2 transform hover:scale-110 transition-transform">
+                                            <i class="fas fa-pencil-alt"></i>
+                                        </a>
+                                        <a href="../modules/fornecedores/fornecedores_action.php?action=delete&id=<?php echo $fornecedor->id; ?>" onclick="return confirm('Tem certeza que deseja excluir este fornecedor?');" class="w-8 h-8 flex items-center justify-center rounded-full bg-red-200 text-red-600 hover:bg-red-300 transform hover:scale-110 transition-transform">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="4" class="text-center py-4">Nenhum fornecedor cadastrado.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<?php require_once __DIR__ . '/../layout/footer.php'; ?>
