@@ -11,6 +11,11 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // MySQL Connection Pool
+console.log('Attempting to connect to database with:');
+console.log('Host:', process.env.DB_HOST || 'localhost');
+console.log('User:', process.env.DB_USER || 'root');
+console.log('Database:', process.env.DB_NAME || 'estoque');
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -95,14 +100,23 @@ async function initializeDatabase() {
 }
 
 async function startServer() {
-  await initializeDatabase();
+  try {
+    await initializeDatabase();
+    console.log('Database initialized successfully');
+  } catch (err) {
+    console.error('CRITICAL: Database initialization failed:', err.message);
+  }
+
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(cors());
   app.use(express.json());
 
-  // API Routes (Async/Await for MySQL)
+  // Health check for Hostinger
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', database: 'connected' });
+  });
 
   // Auth
   app.post('/api/login', async (req, res) => {
