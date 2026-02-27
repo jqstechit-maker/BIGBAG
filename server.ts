@@ -9,13 +9,14 @@ import session from 'express-session';
 
 dotenv.config();
 
-// Diagnóstico de Variáveis de Ambiente
-console.log('--- Verificação de Conexão ---');
-console.log('DB_HOST:', process.env.DB_HOST || 'Não definido (usando localhost)');
-console.log('DB_USER:', process.env.DB_USER || 'Não definido (usando u609303672_virt)');
-console.log('DB_NAME:', process.env.DB_NAME || 'Não definido (usando u609303672_virt)');
-console.log('DB_PASS:', process.env.DB_PASSWORD ? 'Definida' : 'Não definida (usando padrão)');
-console.log('------------------------------');
+// Verificação de variáveis de ambiente obrigatórias
+const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('ERRO CRÍTICO: Variáveis de ambiente ausentes:', missingEnvVars.join(', '));
+  process.exit(1);
+}
 
 // Extend session type for TypeScript
 declare module 'express-session' {
@@ -28,10 +29,10 @@ declare module 'express-session' {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'u609303672_virt',
-  password: process.env.DB_PASSWORD || 'Virtude@2026',
-  database: process.env.DB_NAME || 'u609303672_virt',
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
