@@ -89,10 +89,14 @@ async function initializeDatabase() {
     `);
 
     // Insert default admin if not exists
-    const [rows] = await connection.query('SELECT id FROM funcionarios WHERE email = ?', ['admin@admin.com']) as any[];
+    const [rows] = await connection.query('SELECT id FROM funcionarios WHERE email = ?', ['admin@admin']) as any[];
     if (rows.length === 0) {
+      console.log('Default admin user not found. Creating...');
       await connection.query('INSERT INTO funcionarios (nome, email, senha, registro, funcao, nivel) VALUES (?, ?, ?, ?, ?, ?)', 
-        ['João Silva', 'admin@admin.com', 'admin', '001', 'Almoxarife', 'admin']);
+        ['Administrador', 'admin@admin', 'admin', '000', 'Admin', 'admin']);
+      console.log('Default admin user created successfully.');
+    } else {
+      console.log('Default admin user already exists.');
     }
   } finally {
     connection.release();

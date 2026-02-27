@@ -951,7 +951,7 @@ const Login = ({ onLogin }) => {
           </div>
           <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all transform active:scale-[0.98]">Acessar Sistema</button>
         </form>
-        <p className="mt-8 text-center text-slate-500 text-sm">&copy; 2024 JQS Tech IT</p>
+        <p className="mt-8 text-center text-slate-500 text-sm">By <a href="https://www.jqstechit.com.br" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">JqsTechit</a> 2026</p>
       </motion.div>
     </div>
   );
