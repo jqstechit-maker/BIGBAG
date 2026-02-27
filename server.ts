@@ -8,6 +8,13 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+console.log('--- Environment Variables Check ---');
+console.log('DB_HOST from env:', process.env.DB_HOST);
+console.log('DB_USER from env:', process.env.DB_USER);
+console.log('DB_NAME from env:', process.env.DB_NAME);
+console.log('DB_PASSWORD from env:', process.env.DB_PASSWORD ? 'Loaded' : 'NOT LOADED');
+console.log('---------------------------------');
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // MySQL Connection Pool
