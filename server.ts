@@ -5,8 +5,17 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import session from 'express-session';
 
 dotenv.config();
+
+// Extend session type for TypeScript
+declare module 'express-session' {
+  interface SessionData {
+    user_id: number;
+    nivel_acesso: 'super_admin' | 'admin' | 'funcionario';
+  }
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,14 +48,14 @@ async function initializeDatabase() {
       );
     `);
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS funcionarios (
+      CREATE TABLE IF NOT EXISTS usuario (
         id INT AUTO_INCREMENT PRIMARY KEY,
         nome VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         senha VARCHAR(255) NOT NULL,
         registro VARCHAR(255),
         funcao VARCHAR(255),
-        nivel ENUM('admin', 'funcionario') NOT NULL
+        nivel_acesso ENUM('super_admin', 'admin', 'funcionario') NOT NULL
       );
     `);
     await connection.query(`
@@ -83,10 +92,10 @@ async function initializeDatabase() {
     `);
 
     // Insert default admin if not exists
-    const [rows] = await connection.query('SELECT id FROM funcionarios WHERE email = ?', ['admin@admin']) as any[];
+    const [rows] = await connection.query('SELECT id FROM usuario WHERE email = ?', ['admin@admin']) as any[];
     if (rows.length === 0) {
       console.log('Default admin user not found. Creating...');
-      await connection.query('INSERT INTO funcionarios (nome, email, senha, registro, funcao, nivel) VALUES (?, ?, ?, ?, ?, ?)', 
+      await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
         ['Administrador', 'admin@admin', 'admin', '000', 'Admin', 'admin']);
       console.log('Default admin user created successfully.');
     } else {
@@ -106,10 +115,38 @@ async function startServer() {
   }
 
   const app = express();
-  const PORT = process.env.PORT || 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(cors());
   app.use(express.json());
+  
+  // Session configuration
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'virtude-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 // 24 hours
+    }
+  }));
+
+  // Authorization Middleware
+  const checkAccess = (niveisPermitidos: string[]) => {
+    return (req: any, res: any, next: any) => {
+      if (!req.session || !req.session.user_id) {
+        return res.status(401).json({ success: false, message: 'Sessão expirada. Por favor, faça login novamente.' });
+      }
+      
+      const nivel = req.session.nivel_acesso;
+      if (nivel === 'super_admin' || niveisPermitidos.includes(nivel)) {
+        return next();
+      }
+      
+      return res.status(403).json({ success: false, message: 'Acesso negado. Nível de permissão insuficiente.' });
+    };
+  };
 
   // Health check for Hostinger
   app.get('/api/health', (req, res) => {
@@ -119,13 +156,34 @@ async function startServer() {
   // Auth
   app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
-    const [rows] = await pool.query('SELECT * FROM funcionarios WHERE email = ? AND senha = ?', [email, password]) as any[];
+    const [rows] = await pool.query('SELECT * FROM usuario WHERE email = ? AND senha = ?', [email, password]) as any[];
     if (rows.length > 0) {
       const user = rows[0];
-      res.json({ success: true, user: { id: user.id, nome: user.nome, email: user.email, nivel: user.nivel } });
+      
+      // Save to session
+      req.session.user_id = user.id;
+      req.session.nivel_acesso = user.nivel_acesso;
+      
+      res.json({ 
+        success: true, 
+        user: { 
+          id: user.id, 
+          nome: user.nome, 
+          email: user.email, 
+          nivel: user.nivel_acesso // Keep 'nivel' for frontend compatibility
+        } 
+      });
     } else {
       res.status(401).json({ success: false, message: 'Credenciais inválidas' });
     }
+  });
+
+  // Logout
+  app.post('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ success: false });
+      res.json({ success: true });
+    });
   });
 
   // Produtos
@@ -134,7 +192,7 @@ async function startServer() {
     res.json(rows);
   });
 
-  app.post('/api/produtos', async (req, res) => {
+  app.post('/api/produtos', checkAccess(['admin']), async (req, res) => {
     const { codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit } = req.body;
     try {
       const [result] = await pool.query(
@@ -147,7 +205,7 @@ async function startServer() {
     }
   });
   
-  app.put('/api/produtos/:id', async (req, res) => {
+  app.put('/api/produtos/:id', checkAccess(['admin']), async (req, res) => {
     const { id } = req.params;
     const { codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit } = req.body;
     await pool.query(
@@ -157,7 +215,7 @@ async function startServer() {
     res.json({ success: true });
   });
 
-  app.delete('/api/produtos/:id', async (req, res) => {
+  app.delete('/api/produtos/:id', checkAccess(['admin']), async (req, res) => {
     await pool.query('DELETE FROM produtos WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   });
@@ -195,17 +253,17 @@ async function startServer() {
       const [rows] = await pool.query(`SELECT * FROM ${tableName}`);
       res.json(rows);
     });
-    app.post(`/api/${tableName}`, async (req, res) => {
+    app.post(`/api/${tableName}`, checkAccess(['admin']), async (req, res) => {
       const values = columns.map(col => req.body[col]);
       const [result] = await pool.query(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`, values) as any[];
       res.json({ id: result.insertId });
     });
-    app.put(`/api/${tableName}/:id`, async (req, res) => {
+    app.put(`/api/${tableName}/:id`, checkAccess(['admin']), async (req, res) => {
       const values = columns.map(col => req.body[col]);
       await pool.query(`UPDATE ${tableName} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE id = ?`, [...values, req.params.id]);
       res.json({ success: true });
     });
-    app.delete(`/api/${tableName}/:id`, async (req, res) => {
+    app.delete(`/api/${tableName}/:id`, checkAccess(['admin']), async (req, res) => {
       await pool.query(`DELETE FROM ${tableName} WHERE id = ?`, [req.params.id]);
       res.json({ success: true });
     });
@@ -214,27 +272,29 @@ async function startServer() {
   createCrudRoutes('fornecedores', ['nome', 'telefone', 'email']);
   createCrudRoutes('galpoes', ['nome', 'descricao']);
   
-  // Special handling for funcionarios due to password
-  app.get('/api/funcionarios', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, nome, email, registro, funcao, nivel FROM funcionarios');
-    res.json(rows);
+  // Special handling for funcionarios (usuario) due to password
+  app.get('/api/funcionarios', checkAccess(['admin']), async (req, res) => {
+    const [rows] = await pool.query('SELECT id, nome, email, registro, funcao, nivel_acesso FROM usuario');
+    // Map nivel_acesso to nivel for frontend
+    const mapped = (rows as any[]).map(r => ({ ...r, nivel: r.nivel_acesso }));
+    res.json(mapped);
   });
-  app.post('/api/funcionarios', async (req, res) => {
+  app.post('/api/funcionarios', checkAccess(['admin']), async (req, res) => {
     const { nome, email, senha, registro, funcao, nivel } = req.body;
-    const [result] = await pool.query('INSERT INTO funcionarios (nome, email, senha, registro, funcao, nivel) VALUES (?, ?, ?, ?, ?, ?)', [nome, email, senha, registro, funcao, nivel]) as any[];
+    const [result] = await pool.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', [nome, email, senha, registro, funcao, nivel]) as any[];
     res.json({ id: result.insertId });
   });
-  app.put('/api/funcionarios/:id', async (req, res) => {
+  app.put('/api/funcionarios/:id', checkAccess(['admin']), async (req, res) => {
     const { nome, email, senha, registro, funcao, nivel } = req.body;
     if (senha) {
-      await pool.query('UPDATE funcionarios SET nome = ?, email = ?, senha = ?, registro = ?, funcao = ?, nivel = ? WHERE id = ?', [nome, email, senha, registro, funcao, nivel, req.params.id]);
+      await pool.query('UPDATE usuario SET nome = ?, email = ?, senha = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, email, senha, registro, funcao, nivel, req.params.id]);
     } else {
-      await pool.query('UPDATE funcionarios SET nome = ?, email = ?, registro = ?, funcao = ?, nivel = ? WHERE id = ?', [nome, email, registro, funcao, nivel, req.params.id]);
+      await pool.query('UPDATE usuario SET nome = ?, email = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, email, registro, funcao, nivel, req.params.id]);
     }
     res.json({ success: true });
   });
-  app.delete('/api/funcionarios/:id', async (req, res) => {
-    await pool.query('DELETE FROM funcionarios WHERE id = ?', [req.params.id]);
+  app.delete('/api/funcionarios/:id', checkAccess(['admin']), async (req, res) => {
+    await pool.query('DELETE FROM usuario WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   });
 
