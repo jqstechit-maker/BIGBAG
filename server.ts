@@ -9,6 +9,14 @@ import session from 'express-session';
 
 dotenv.config();
 
+// Diagnóstico de Variáveis de Ambiente
+console.log('--- Verificação de Conexão ---');
+console.log('DB_HOST:', process.env.DB_HOST || 'Não definido (usando localhost)');
+console.log('DB_USER:', process.env.DB_USER || 'Não definido (usando u609303672_virt)');
+console.log('DB_NAME:', process.env.DB_NAME || 'Não definido (usando u609303672_virt)');
+console.log('DB_PASS:', process.env.DB_PASSWORD ? 'Definida' : 'Não definida (usando padrão)');
+console.log('------------------------------');
+
 // Extend session type for TypeScript
 declare module 'express-session' {
   interface SessionData {
@@ -21,9 +29,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'estoque',
+  user: process.env.DB_USER || 'u609303672_virt',
+  password: process.env.DB_PASSWORD || 'Virtude@2026',
+  database: process.env.DB_NAME || 'u609303672_virt',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
