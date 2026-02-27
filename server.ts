@@ -4,34 +4,11 @@ import mysql from 'mysql2/promise';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import { dbConfig } from './config.js';
 
 dotenv.config();
 
-console.log('--- Environment Variables Check ---');
-console.log('DB_HOST from env:', process.env.DB_HOST);
-console.log('DB_USER from env:', process.env.DB_USER);
-console.log('DB_NAME from env:', process.env.DB_NAME);
-console.log('DB_PASSWORD from env:', process.env.DB_PASSWORD ? 'Loaded' : 'NOT LOADED');
-console.log('---------------------------------');
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-// MySQL Connection Pool
-console.log('Attempting to connect to database with:');
-console.log('Host:', process.env.DB_HOST || 'localhost');
-console.log('User:', process.env.DB_USER || 'root');
-console.log('Database:', process.env.DB_NAME || 'estoque');
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'estoque',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+const pool = mysql.createPool(dbConfig);
 
 async function initializeDatabase() {
   const connection = await pool.getConnection();
