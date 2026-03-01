@@ -43,44 +43,95 @@ const mockData: any = {
 };
 
 function createMockPool() {
+  const queryHandler = async (sql: string, params: any[] = []) => {
+    const lowerSql = sql.toLowerCase();
+    
+    if (lowerSql.includes('from usuario')) {
+      if (lowerSql.includes('where nome = ? and senha = ?')) {
+        const user = mockData.usuario.find((u: any) => u.nome === params[0] && u.senha === params[1]);
+        return [user ? [user] : []];
+      }
+      if (lowerSql.includes('where nome = ?')) {
+        const user = mockData.usuario.find((u: any) => u.nome === params[0]);
+        return [user ? [user] : []];
+      }
+      return [mockData.usuario];
+    }
+
+    if (lowerSql.includes('select * from produtos')) return [mockData.produtos];
+    if (lowerSql.includes('select * from fornecedores')) return [mockData.fornecedores];
+    if (lowerSql.includes('select * from galpoes')) return [mockData.galpoes];
+    if (lowerSql.includes('select * from movimentacoes')) return [mockData.movimentacoes];
+
+    if (lowerSql.includes('insert into usuario')) {
+      const newUser = { id: mockData.usuario.length + 1, nome: params[0], email: params[1], senha: params[2], registro: params[3], funcao: params[4], nivel_acesso: params[5] };
+      mockData.usuario.push(newUser);
+      return [{ insertId: newUser.id }];
+    }
+
+    if (lowerSql.includes('insert into produtos')) {
+      // (codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit)
+      const newProd = { 
+        id: mockData.produtos.length + 1, 
+        codigo: params[0], 
+        descricao: params[1], 
+        tipo: params[2], 
+        fornecedorId: params[3], 
+        galpaoId: params[4], 
+        estoque: 0, 
+        min: params[5], 
+        pesoUnit: params[6], 
+        valorUnit: params[7] 
+      };
+      mockData.produtos.push(newProd);
+      return [{ insertId: newProd.id }];
+    }
+
+    if (lowerSql.includes('insert into fornecedores')) {
+      const newItem = { id: mockData.fornecedores.length + 1, nome: params[0], telefone: params[1], email: params[2] };
+      mockData.fornecedores.push(newItem);
+      return [{ insertId: newItem.id }];
+    }
+
+    if (lowerSql.includes('insert into galpoes')) {
+      const newItem = { id: mockData.galpoes.length + 1, nome: params[0], descricao: params[1] };
+      mockData.galpoes.push(newItem);
+      return [{ insertId: newItem.id }];
+    }
+
+    if (lowerSql.includes('insert into movimentacoes')) {
+      const newItem = { 
+        id: mockData.movimentacoes.length + 1, 
+        data: params[0], codigo: params[1], produto: params[2], fornecedor: params[3], 
+        tipo: params[4], qtd: params[5], peso: params[6], nf: params[7], 
+        responsavel: params[8], valorUnit: params[9], valorTotal: params[10] 
+      };
+      mockData.movimentacoes.push(newItem);
+      return [{ insertId: newItem.id }];
+    }
+
+    if (lowerSql.includes('update produtos set estoque = estoque + ? where id = ?')) {
+      const adjust = params[0];
+      const id = params[1];
+      const prod = mockData.produtos.find((p: any) => p.id === id);
+      if (prod) prod.estoque += adjust;
+      return [{ affectedRows: 1 }];
+    }
+
+    if (lowerSql.includes('delete from')) return [{ affectedRows: 1 }];
+    if (lowerSql.includes('update')) return [{ affectedRows: 1 }];
+
+    // Default for CREATE TABLE, etc.
+    return [[]];
+  };
+
   return {
-    query: async (sql: string, params: any[] = []) => {
-      const lowerSql = sql.toLowerCase();
-      
-      if (lowerSql.includes('from usuario')) {
-        if (lowerSql.includes('where nome = ? and senha = ?')) {
-          const user = mockData.usuario.find((u: any) => u.nome === params[0] && u.senha === params[1]);
-          return [user ? [user] : []];
-        }
-        if (lowerSql.includes('where nome = ?')) {
-          const user = mockData.usuario.find((u: any) => u.nome === params[0]);
-          return [user ? [user] : []];
-        }
-        return [mockData.usuario];
-      }
-
-      if (lowerSql.includes('select * from produtos')) return [mockData.produtos];
-      if (lowerSql.includes('select * from fornecedores')) return [mockData.fornecedores];
-      if (lowerSql.includes('select * from galpoes')) return [mockData.galpoes];
-      if (lowerSql.includes('select * from movimentacoes')) return [mockData.movimentacoes];
-
-      if (lowerSql.includes('insert into usuario')) {
-        const newUser = { id: mockData.usuario.length + 1, nome: params[0], email: params[1], senha: params[2], registro: params[3], funcao: params[4], nivel_acesso: params[5] };
-        mockData.usuario.push(newUser);
-        return [{ insertId: newUser.id }];
-      }
-
-      if (lowerSql.includes('insert into produtos')) {
-        const newProd = { id: mockData.produtos.length + 1, codigo: params[0], descricao: params[1], tipo: params[2], fornecedorId: params[3], galpaoId: params[4], estoque: params[5], min: params[6], pesoUnit: params[7], valorUnit: params[8] };
-        mockData.produtos.push(newProd);
-        return [{ insertId: newProd.id }];
-      }
-
-      // Default for CREATE TABLE, etc.
-      return [[]];
-    },
+    query: queryHandler,
     getConnection: async () => ({
-      query: async (sql: string, params: any[] = []) => pool.query(sql, params),
+      query: queryHandler,
+      beginTransaction: async () => {},
+      commit: async () => {},
+      rollback: async () => {},
       release: () => {}
     })
   };
@@ -103,14 +154,19 @@ try {
 }
 
 async function initializeDatabase() {
+  console.log('--- DATABASE INITIALIZATION START ---');
   if (isMockMode) {
     console.log('Database initialization skipped in Mock Mode.');
+    console.log('--- DATABASE INITIALIZATION END (MOCK) ---');
     return;
   }
 
   try {
+    console.log('Connecting to MySQL pool...');
     const connection = await pool.getConnection();
+    console.log('MySQL connection established.');
     try {
+      console.log('Creating tables if they do not exist...');
       await connection.query(`
         CREATE TABLE IF NOT EXISTS fornecedores (
           id INT AUTO_INCREMENT PRIMARY KEY,
@@ -170,6 +226,7 @@ async function initializeDatabase() {
         );
       `);
 
+      console.log('Checking for default admin user...');
       // Insert default admin if not exists
       const [rows] = await connection.query('SELECT id FROM usuario WHERE nome = ?', ['admin']) as any[];
       if (rows.length === 0) {
@@ -180,13 +237,16 @@ async function initializeDatabase() {
       } else {
         console.log('Default admin user already exists.');
       }
+      console.log('--- DATABASE INITIALIZATION END (SUCCESS) ---');
     } finally {
       connection.release();
     }
   } catch (err) {
+    console.error('DATABASE INITIALIZATION ERROR:', err.message);
     console.log('Falha ao conectar ao MySQL. Ativando MODO DE TESTE.');
     isMockMode = true;
     pool = createMockPool();
+    console.log('--- DATABASE INITIALIZATION END (FALLBACK TO MOCK) ---');
   }
 }
 
@@ -209,9 +269,11 @@ async function startServer() {
     secret: process.env.SESSION_SECRET || 'virtude-secret-key',
     resave: false,
     saveUninitialized: false,
+    name: 'virtude_session',
     cookie: {
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Set to false to work on both HTTP and HTTPS in shared hosting
       httpOnly: true,
+      sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 24 // 24 hours
     }
   }));
@@ -234,7 +296,11 @@ async function startServer() {
 
   // Health check for Hostinger
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', database: 'connected' });
+    res.json({ 
+      status: 'ok', 
+      database: isMockMode ? 'mock (in-memory)' : 'connected (mysql)',
+      mode: process.env.NODE_ENV 
+    });
   });
 
   // Auth

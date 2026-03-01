@@ -254,15 +254,20 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        alert(errorData.message || 'Erro ao fazer login. Verifique suas credenciais.');
+        return;
+      }
+
       const data = await res.json();
       if (data.success) {
         setUserRole(data.user.nivel);
         setIsLoggedIn(true);
-      } else {
-        alert(data.message || 'Erro ao fazer login');
       }
     } catch (err) {
-      alert('Erro de conexão com o servidor');
+      alert('Erro de conexão com o servidor. Verifique se o backend está rodando.');
     }
   };
 
@@ -357,6 +362,7 @@ export default function App() {
     const url = editingItem ? `/api/${activeTab}/${editingItem.id}` : `/api/${activeTab}`;
     
     try {
+      let response;
       if (activeTab === 'produtos') {
         const finalCodigo = formData.codigoPrefix && formData.codigoSuffix 
           ? `${formData.codigoPrefix}-${formData.codigoSuffix}` 
@@ -366,13 +372,13 @@ export default function App() {
         delete productData.codigoPrefix;
         delete productData.codigoSuffix;
 
-        await fetch(url, {
+        response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(productData)
         });
       } else if (activeTab === 'fornecedores' || activeTab === 'funcionarios' || activeTab === 'galpoes') {
-        await fetch(url, {
+        response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -410,17 +416,22 @@ export default function App() {
           produtoId: prod.id
         };
 
-        await fetch('/api/movimentacoes', {
+        response = await fetch('/api/movimentacoes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(movementData)
         });
       }
       
+      if (response && !response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Erro ao salvar dados');
+      }
+
       await fetchData();
       setShowModal(false);
     } catch (err) {
-      alert('Erro ao salvar dados');
+      alert(err.message || 'Erro ao salvar dados');
     }
   };
 
