@@ -36,10 +36,18 @@ const mockData: any = {
   usuario: [
     { id: 1, nome: 'admin', email: 'admin@admin', senha: 'admin', registro: '000', funcao: 'Admin', nivel_acesso: 'admin' }
   ],
-  fornecedores: [],
-  galpoes: [],
-  produtos: [],
-  movimentacoes: []
+  fornecedores: [
+    { id: 1, nome: 'Fornecedor Exemplo A', telefone: '(11) 9999-9999', email: 'contato@exemplo.com' }
+  ],
+  galpoes: [
+    { id: 1, nome: 'Almoxarifado Central', descricao: 'Principal local de armazenamento' }
+  ],
+  produtos: [
+    { id: 1, codigo: 'VT-0001', descricao: 'BigBag Standard', tipo: 'Fardo', fornecedorId: 1, galpaoId: 1, estoque: 50, min: 10, pesoUnit: 1.5, valorUnit: 45.0 }
+  ],
+  movimentacoes: [
+    { id: 1, data: new Date().toLocaleString(), codigo: 'VT-0001', produto: 'BigBag Standard', fornecedor: 'Fornecedor Exemplo A', tipo: 'entrada', qtd: 50, peso: 75.0, nf: '12345', responsavel: 'admin', valorUnit: 45.0, valorTotal: 2250.0 }
+  ]
 };
 
 function createMockPool() {
@@ -266,14 +274,16 @@ async function startServer() {
   
   // Session configuration
   app.use(session({
-    secret: process.env.SESSION_SECRET || 'virtude-secret-key',
+    secret: process.env.SESSION_SECRET || 'virtude-secret-key-2026',
     resave: false,
     saveUninitialized: false,
     name: 'virtude_session',
+    proxy: true,
     cookie: {
-      secure: false, // Set to false to work on both HTTP and HTTPS in shared hosting
+      // For AI Studio Preview, we need SameSite=None and Secure=True
+      secure: true, 
       httpOnly: true,
-      sameSite: 'lax',
+      sameSite: 'none',
       maxAge: 1000 * 60 * 60 * 24 // 24 hours
     }
   }));

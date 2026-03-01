@@ -993,14 +993,50 @@ const Dashboard = ({ produtos, movimentacoes }) => {
   const currentYear = new Date().getFullYear();
   
   const movimentosMes = movimentacoes.filter(m => {
-    const [dia, mes, ano] = m.data.split(' ')[0].split('/');
-    return parseInt(mes) - 1 === currentMonth && parseInt(ano) === currentYear;
+    // Expected format: "DD/MM/YYYY, HH:MM:SS" or "YYYY-MM-DD"
+    try {
+      const datePart = m.data.split(',')[0].trim();
+      const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
+      // Handle both DD/MM/YYYY and YYYY-MM-DD
+      const mMonth = datePart.includes('/') ? parseInt(mes) - 1 : parseInt(mes) - 1;
+      const mYear = datePart.includes('/') ? parseInt(ano) : parseInt(dia);
+      return mMonth === currentMonth && mYear === currentYear;
+    } catch (e) {
+      return false;
+    }
   });
 
   const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
-  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.valorTotal, 0);
+  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (m.valorTotal || 0), 0);
   const saidasMesQtd = movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0);
-  const saidasMesVal = movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.valorTotal, 0);
+  const saidasMesVal = movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0);
+
+  // Process data for charts (last 6 months)
+  const chartData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    const monthName = d.toLocaleString('pt-BR', { month: 'short' });
+    const mIndex = d.getMonth();
+    const yIndex = d.getFullYear();
+
+    const monthMovs = movimentacoes.filter(m => {
+      try {
+        const datePart = m.data.split(',')[0].trim();
+        const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
+        const mMonth = datePart.includes('/') ? parseInt(mes) - 1 : parseInt(mes) - 1;
+        const mYear = datePart.includes('/') ? parseInt(ano) : parseInt(dia);
+        return mMonth === mIndex && mYear === yIndex;
+      } catch (e) { return false; }
+    });
+
+    return {
+      name: monthName,
+      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0),
+      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0),
+      entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (m.valorTotal || 0), 0),
+      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0),
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -1013,7 +1049,6 @@ const Dashboard = ({ produtos, movimentacoes }) => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Quantities */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-[400px]">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-slate-800">Fluxo de Quantidades</h3>
@@ -1023,7 +1058,7 @@ const Dashboard = ({ produtos, movimentacoes }) => {
             </div>
           </div>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={MOCK_MOVIMENTACOES}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
               <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
@@ -1037,7 +1072,6 @@ const Dashboard = ({ produtos, movimentacoes }) => {
           </ResponsiveContainer>
         </div>
 
-        {/* Chart 2: Values */}
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-[400px]">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-bold text-slate-800">Fluxo de Valores (R$)</h3>
@@ -1047,7 +1081,7 @@ const Dashboard = ({ produtos, movimentacoes }) => {
             </div>
           </div>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={MOCK_MOVIMENTACOES}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
               <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `R$ ${value}`} />
@@ -1075,9 +1109,5 @@ const StatCard = ({ title, value, icon: Icon, color, trend = null }) => (
     <p className="text-2xl font-bold text-slate-900">{value}</p>
   </div>
 );
-
-const MOCK_MOVIMENTACOES = [];
-
-const MOCK_ESTOQUE_TIPOS = [];
 
 const COLORS = ['#3b82f6', '#22c55e', '#eab308', '#a855f7', '#6b7280'];
