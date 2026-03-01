@@ -54,6 +54,7 @@ function createMockPool() {
   const queryHandler = async (sql: string, params: any[] = []) => {
     const lowerSql = sql.toLowerCase();
     
+    // SELECT USUARIO
     if (lowerSql.includes('from usuario')) {
       if (lowerSql.includes('where nome = ? and senha = ?')) {
         const user = mockData.usuario.find((u: any) => u.nome === params[0] && u.senha === params[1]);
@@ -66,70 +67,160 @@ function createMockPool() {
       return [mockData.usuario];
     }
 
+    // SELECT OTHERS
     if (lowerSql.includes('select * from produtos')) return [mockData.produtos];
     if (lowerSql.includes('select * from fornecedores')) return [mockData.fornecedores];
     if (lowerSql.includes('select * from galpoes')) return [mockData.galpoes];
-    if (lowerSql.includes('select * from movimentacoes')) return [mockData.movimentacoes];
+    if (lowerSql.includes('select * from movimentacoes')) {
+      const sorted = [...mockData.movimentacoes].sort((a, b) => b.id - a.id);
+      return [sorted];
+    }
 
+    // INSERT USUARIO
     if (lowerSql.includes('insert into usuario')) {
-      const newUser = { id: mockData.usuario.length + 1, nome: params[0], email: params[1], senha: params[2], registro: params[3], funcao: params[4], nivel_acesso: params[5] };
+      const newUser = { 
+        id: mockData.usuario.length + 1, 
+        nome: params[0], 
+        senha: params[1], 
+        registro: params[2], 
+        funcao: params[3], 
+        nivel_acesso: params[4] 
+      };
       mockData.usuario.push(newUser);
       return [{ insertId: newUser.id }];
     }
 
+    // INSERT PRODUTOS
     if (lowerSql.includes('insert into produtos')) {
-      // (codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit)
       const newProd = { 
         id: mockData.produtos.length + 1, 
         codigo: params[0], 
         descricao: params[1], 
         tipo: params[2], 
-        fornecedorId: params[3], 
-        galpaoId: params[4], 
+        fornecedorId: Number(params[3]), 
+        galpaoId: Number(params[4]), 
         estoque: 0, 
-        min: params[5], 
-        pesoUnit: params[6], 
-        valorUnit: params[7] 
+        min: Number(params[5]), 
+        pesoUnit: Number(params[6]), 
+        valorUnit: Number(params[7]) 
       };
       mockData.produtos.push(newProd);
       return [{ insertId: newProd.id }];
     }
 
+    // INSERT FORNECEDORES
     if (lowerSql.includes('insert into fornecedores')) {
       const newItem = { id: mockData.fornecedores.length + 1, nome: params[0], telefone: params[1], email: params[2] };
       mockData.fornecedores.push(newItem);
       return [{ insertId: newItem.id }];
     }
 
+    // INSERT GALPOES
     if (lowerSql.includes('insert into galpoes')) {
       const newItem = { id: mockData.galpoes.length + 1, nome: params[0], descricao: params[1] };
       mockData.galpoes.push(newItem);
       return [{ insertId: newItem.id }];
     }
 
+    // INSERT MOVIMENTACOES
     if (lowerSql.includes('insert into movimentacoes')) {
       const newItem = { 
         id: mockData.movimentacoes.length + 1, 
         data: params[0], codigo: params[1], produto: params[2], fornecedor: params[3], 
-        tipo: params[4], qtd: params[5], peso: params[6], nf: params[7], 
-        responsavel: params[8], valorUnit: params[9], valorTotal: params[10] 
+        tipo: params[4], qtd: Number(params[5]), peso: Number(params[6]), nf: params[7], 
+        responsavel: params[8], valorUnit: Number(params[9]), valorTotal: Number(params[10]),
+        produtoId: Number(params[11])
       };
       mockData.movimentacoes.push(newItem);
       return [{ insertId: newItem.id }];
     }
 
+    // UPDATE PRODUTOS ESTOQUE
     if (lowerSql.includes('update produtos set estoque = estoque + ? where id = ?')) {
-      const adjust = params[0];
-      const id = params[1];
+      const adjust = Number(params[0]);
+      const id = Number(params[1]);
       const prod = mockData.produtos.find((p: any) => p.id === id);
       if (prod) prod.estoque += adjust;
       return [{ affectedRows: 1 }];
     }
 
-    if (lowerSql.includes('delete from')) return [{ affectedRows: 1 }];
-    if (lowerSql.includes('update')) return [{ affectedRows: 1 }];
+    // UPDATE PRODUTOS FULL
+    if (lowerSql.includes('update produtos set codigo = ?, descricao = ?, tipo = ?, fornecedorid = ?, galpaoid = ?, min = ?, pesounit = ?, valorunit = ? where id = ?')) {
+      const id = Number(params[8]);
+      const index = mockData.produtos.findIndex((p: any) => p.id === id);
+      if (index !== -1) {
+        mockData.produtos[index] = { 
+          ...mockData.produtos[index], 
+          codigo: params[0], 
+          descricao: params[1], 
+          tipo: params[2], 
+          fornecedorId: Number(params[3]), 
+          galpaoId: Number(params[4]), 
+          min: Number(params[5]), 
+          pesoUnit: Number(params[6]), 
+          valorUnit: Number(params[7]) 
+        };
+      }
+      return [{ affectedRows: 1 }];
+    }
 
-    // Default for CREATE TABLE, etc.
+    // UPDATE USUARIO
+    if (lowerSql.includes('update usuario set nome = ?')) {
+      const id = Number(params[params.length - 1]);
+      const index = mockData.usuario.findIndex((u: any) => u.id === id);
+      if (index !== -1) {
+        if (lowerSql.includes('senha = ?')) {
+          mockData.usuario[index] = { ...mockData.usuario[index], nome: params[0], senha: params[1], registro: params[2], funcao: params[3], nivel_acesso: params[4] };
+        } else {
+          mockData.usuario[index] = { ...mockData.usuario[index], nome: params[0], registro: params[1], funcao: params[2], nivel_acesso: params[3] };
+        }
+      }
+      return [{ affectedRows: 1 }];
+    }
+
+    // UPDATE MOVIMENTACOES
+    if (lowerSql.includes('update movimentacoes set qtd = ?')) {
+      const id = Number(params[params.length - 1]);
+      const index = mockData.movimentacoes.findIndex((m: any) => m.id === id);
+      if (index !== -1) {
+        mockData.movimentacoes[index] = { 
+          ...mockData.movimentacoes[index], 
+          qtd: Number(params[0]), 
+          peso: Number(params[1]), 
+          nf: params[2], 
+          responsavel: params[3], 
+          valorUnit: Number(params[4]), 
+          valorTotal: Number(params[5]) 
+        };
+      }
+      return [{ affectedRows: 1 }];
+    }
+
+    // GENERIC UPDATE
+    if (lowerSql.includes('update fornecedores')) {
+      const id = Number(params[params.length - 1]);
+      const index = mockData.fornecedores.findIndex((f: any) => f.id === id);
+      if (index !== -1) mockData.fornecedores[index] = { ...mockData.fornecedores[index], nome: params[0], telefone: params[1], email: params[2] };
+      return [{ affectedRows: 1 }];
+    }
+    if (lowerSql.includes('update galpoes')) {
+      const id = Number(params[params.length - 1]);
+      const index = mockData.galpoes.findIndex((g: any) => g.id === id);
+      if (index !== -1) mockData.galpoes[index] = { ...mockData.galpoes[index], nome: params[0], descricao: params[1] };
+      return [{ affectedRows: 1 }];
+    }
+
+    // DELETE
+    if (lowerSql.includes('delete from')) {
+      const id = Number(params[0]);
+      if (lowerSql.includes('produtos')) mockData.produtos = mockData.produtos.filter((p: any) => p.id !== id);
+      if (lowerSql.includes('fornecedores')) mockData.fornecedores = mockData.fornecedores.filter((f: any) => f.id !== id);
+      if (lowerSql.includes('galpoes')) mockData.galpoes = mockData.galpoes.filter((g: any) => g.id !== id);
+      if (lowerSql.includes('usuario')) mockData.usuario = mockData.usuario.filter((u: any) => u.id !== id);
+      if (lowerSql.includes('movimentacoes')) mockData.movimentacoes = mockData.movimentacoes.filter((m: any) => m.id !== id);
+      return [{ affectedRows: 1 }];
+    }
+
     return [[]];
   };
 
@@ -193,8 +284,8 @@ async function initializeDatabase() {
       await connection.query(`
         CREATE TABLE IF NOT EXISTS usuario (
           id INT AUTO_INCREMENT PRIMARY KEY,
-          nome VARCHAR(255) NOT NULL,
-          email VARCHAR(255) UNIQUE NOT NULL,
+          nome VARCHAR(255) UNIQUE NOT NULL,
+          email VARCHAR(255),
           senha VARCHAR(255) NOT NULL,
           registro VARCHAR(255),
           funcao VARCHAR(255),
@@ -230,7 +321,9 @@ async function initializeDatabase() {
           nf VARCHAR(255),
           responsavel VARCHAR(255),
           valorUnit DECIMAL(10, 3),
-          valorTotal DECIMAL(10, 3)
+          valorTotal DECIMAL(10, 3),
+          produtoId INT,
+          FOREIGN KEY(produtoId) REFERENCES produtos(id) ON DELETE SET NULL
         );
       `);
 
@@ -392,11 +485,75 @@ async function startServer() {
     try {
       await connection.beginTransaction();
       await connection.query(
-        'INSERT INTO movimentacoes (data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorUnit, valorTotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorUnit, valorTotal]
+        'INSERT INTO movimentacoes (data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId]
       );
       const adjust = tipo === 'entrada' ? qtd : -qtd;
       await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [adjust, produtoId]);
+      await connection.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await connection.rollback();
+      res.status(400).json({ error: err.message });
+    } finally {
+      connection.release();
+    }
+  });
+
+  app.put('/api/movimentacoes/:id', checkAccess(['admin']), async (req, res) => {
+    const { id } = req.params;
+    const { qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId } = req.body;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      
+      // Get old movement to adjust stock
+      const [oldMovs] = await connection.query('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      if (oldMovs.length === 0) throw new Error('Movimentação não encontrada');
+      const oldMov = oldMovs[oldMovs.length - 1]; // Mock might return different structure
+
+      // Revert old stock
+      const revertAdjust = oldMov.tipo === 'entrada' ? -oldMov.qtd : oldMov.qtd;
+      await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [revertAdjust, oldMov.produtoId]);
+
+      // Apply new stock
+      const newAdjust = oldMov.tipo === 'entrada' ? qtd : -qtd;
+      await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [newAdjust, produtoId]);
+
+      // Update movement
+      await connection.query(
+        'UPDATE movimentacoes SET qtd = ?, peso = ?, nf = ?, responsavel = ?, valorUnit = ?, valorTotal = ? WHERE id = ?',
+        [qtd, peso, nf, responsavel, valorUnit, valorTotal, id]
+      );
+
+      await connection.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await connection.rollback();
+      res.status(400).json({ error: err.message });
+    } finally {
+      connection.release();
+    }
+  });
+
+  app.delete('/api/movimentacoes/:id', checkAccess(['admin']), async (req, res) => {
+    const { id } = req.params;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      
+      const [movs] = await connection.query('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      if (movs.length === 0) throw new Error('Movimentação não encontrada');
+      const mov = movs[0];
+
+      // Revert stock
+      const adjust = mov.tipo === 'entrada' ? -mov.qtd : mov.qtd;
+      if (mov.produtoId) {
+        await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [adjust, mov.produtoId]);
+      }
+
+      await connection.query('DELETE FROM movimentacoes WHERE id = ?', [id]);
+      
       await connection.commit();
       res.json({ success: true });
     } catch (err) {
@@ -440,18 +597,26 @@ async function startServer() {
     res.json(mapped);
   });
   app.post('/api/funcionarios', checkAccess(['admin']), async (req, res) => {
-    const { nome, email, senha, registro, funcao, nivel } = req.body;
-    const [result] = await pool.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', [nome, email, senha, registro, funcao, nivel]) as any[];
-    res.json({ id: result.insertId });
+    const { nome, senha, registro, funcao, nivel } = req.body;
+    try {
+      const [result] = await pool.query('INSERT INTO usuario (nome, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?)', [nome, senha, registro, funcao, nivel]) as any[];
+      res.json({ id: result.insertId });
+    } catch (err) {
+      res.status(400).json({ error: 'Nome de usuário já existe ou dados inválidos.' });
+    }
   });
   app.put('/api/funcionarios/:id', checkAccess(['admin']), async (req, res) => {
-    const { nome, email, senha, registro, funcao, nivel } = req.body;
-    if (senha) {
-      await pool.query('UPDATE usuario SET nome = ?, email = ?, senha = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, email, senha, registro, funcao, nivel, req.params.id]);
-    } else {
-      await pool.query('UPDATE usuario SET nome = ?, email = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, email, registro, funcao, nivel, req.params.id]);
+    const { nome, senha, registro, funcao, nivel } = req.body;
+    try {
+      if (senha) {
+        await pool.query('UPDATE usuario SET nome = ?, senha = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, senha, registro, funcao, nivel, req.params.id]);
+      } else {
+        await pool.query('UPDATE usuario SET nome = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, registro, funcao, nivel, req.params.id]);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
-    res.json({ success: true });
   });
   app.delete('/api/funcionarios/:id', checkAccess(['admin']), async (req, res) => {
     await pool.query('DELETE FROM usuario WHERE id = ?', [req.params.id]);

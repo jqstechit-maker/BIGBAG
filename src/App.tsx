@@ -359,18 +359,33 @@ export default function App() {
   const handleSave = async () => {
     const timestamp = new Date().toLocaleString();
     const method = editingItem ? 'PUT' : 'POST';
-    const url = editingItem ? `/api/${activeTab}/${editingItem.id}` : `/api/${activeTab}`;
+    let tabForUrl = activeTab;
+    if (activeTab === 'estoque') tabForUrl = 'produtos';
     
+    let url = editingItem ? `/api/${tabForUrl}/${editingItem.id}` : `/api/${tabForUrl}`;
+    
+    // Special URL for movements
+    if (activeTab === 'entradas' || activeTab === 'saidas') {
+      url = editingItem ? `/api/movimentacoes/${editingItem.id}` : '/api/movimentacoes';
+    }
+
     try {
       let response;
-      if (activeTab === 'produtos') {
+      if (activeTab === 'produtos' || activeTab === 'estoque') {
         const finalCodigo = formData.codigoPrefix && formData.codigoSuffix 
           ? `${formData.codigoPrefix}-${formData.codigoSuffix}` 
           : formData.codigo;
         
-        const productData = { ...formData, codigo: finalCodigo };
-        delete productData.codigoPrefix;
-        delete productData.codigoSuffix;
+        const productData = { 
+          codigo: finalCodigo,
+          descricao: formData.descricao,
+          tipo: formData.tipo,
+          fornecedorId: Number(formData.fornecedorId),
+          galpaoId: Number(formData.galpaoId),
+          min: Number(formData.min) || 0,
+          pesoUnit: parseFloat(formData.pesoUnit) || 0,
+          valorUnit: parseFloat(formData.valorUnit) || 0
+        };
 
         response = await fetch(url, {
           method,
@@ -378,10 +393,17 @@ export default function App() {
           body: JSON.stringify(productData)
         });
       } else if (activeTab === 'fornecedores' || activeTab === 'funcionarios' || activeTab === 'galpoes') {
+        // Clean up formData for these types if needed, but for now just send
+        const cleanData = { ...formData };
+        if (activeTab === 'funcionarios') {
+          delete cleanData.nivel; // We use nivel_acesso in backend or map it
+          cleanData.nivel = formData.nivel; // Ensure it's there if needed
+        }
+
         response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(cleanData)
         });
       } else if (activeTab === 'entradas' || activeTab === 'saidas') {
         const prod = produtos.find(p => p.id === parseInt(formData.produtoId));
@@ -393,7 +415,7 @@ export default function App() {
         const qtd = parseInt(formData.quantidade);
         const isEntrada = activeTab === 'entradas';
         
-        if (!isEntrada && prod.estoque < qtd) {
+        if (!isEntrada && !editingItem && prod.estoque < qtd) {
           alert(`Estoque insuficiente! O saldo atual de ${prod.descricao} é ${prod.estoque}.`);
           return;
         }
@@ -402,7 +424,7 @@ export default function App() {
         const valorTotal = valorUnit * qtd;
 
         const movementData = {
-          data: timestamp,
+          data: editingItem ? editingItem.data : timestamp,
           codigo: prod.codigo,
           produto: prod.descricao,
           fornecedor: fornecedores.find(f => f.id === prod.fornecedorId)?.nome || 'N/A',
@@ -416,8 +438,8 @@ export default function App() {
           produtoId: prod.id
         };
 
-        response = await fetch('/api/movimentacoes', {
-          method: 'POST',
+        response = await fetch(url, {
+          method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(movementData)
         });
@@ -436,12 +458,25 @@ export default function App() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir?')) return;
+    if (!confirm('Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.')) return;
+    
+    let tabForUrl = activeTab;
+    if (activeTab === 'estoque') tabForUrl = 'produtos';
+
+    let url = `/api/${tabForUrl}/${id}`;
+    if (activeTab === 'entradas' || activeTab === 'saidas') {
+      url = `/api/movimentacoes/${id}`;
+    }
+
     try {
-      await fetch(`/api/${activeTab}/${id}`, { method: 'DELETE' });
+      const res = await fetch(url, { method: 'DELETE' });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || errorData.error || 'Erro ao excluir');
+      }
       await fetchData();
     } catch (err) {
-      alert('Erro ao excluir registro');
+      alert(err.message || 'Erro ao excluir registro');
     }
   };
 
@@ -622,8 +657,16 @@ export default function App() {
                     const matchForn = filters.fornecedor ? m.fornecedor === filters.fornecedor : true;
                     return matchTipoMov && matchData && matchCodigo && matchNF && matchResp && matchForn;
                   })}
-                  onDelete={() => {}} 
-                  onEdit={() => {}}
+                  onDelete={handleDelete} 
+                  onEdit={(item) => { 
+                    setEditingItem(item); 
+                    setFormData({
+                      ...item,
+                      quantidade: item.qtd,
+                      produtoId: item.produtoId?.toString() || ''
+                    }); 
+                    setShowModal(true); 
+                  }}
                 renderRow={(m) => (
                   <>
                     <td className="px-6 py-4 text-slate-500 text-xs">{m.data}</td>
@@ -678,7 +721,26 @@ export default function App() {
                       const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
                       return matchCodigo && matchDesc && matchTipo;
                     }).map(p => (
-                    <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                    <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
+                      <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { 
+                          if (p.codigo && p.codigo.includes('-')) {
+                            const [prefix, suffix] = p.codigo.split('-');
+                            setFormData({ ...p, codigoPrefix: prefix, codigoSuffix: suffix });
+                          } else {
+                            setFormData(p);
+                          }
+                          setEditingItem(p); 
+                          setShowModal(true); 
+                        }} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => {
+                          handleDelete(p.id);
+                        }} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.codigo}</p>
@@ -715,8 +777,19 @@ export default function App() {
                       const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
                       return matchCodigo && matchDesc && matchTipo;
                     })}
-                    onDelete={() => {}}
-                    onEdit={() => {}}
+                    onDelete={(id) => {
+                      handleDelete(id);
+                    }}
+                    onEdit={(item) => {
+                      if (item.codigo && item.codigo.includes('-')) {
+                        const [prefix, suffix] = item.codigo.split('-');
+                        setFormData({ ...item, codigoPrefix: prefix, codigoSuffix: suffix });
+                      } else {
+                        setFormData(item);
+                      }
+                      setEditingItem(item); 
+                      setShowModal(true);
+                    }}
                     renderRow={(p) => (
                       <>
                         <td className="px-6 py-4 font-mono text-blue-600 text-xs">{p.codigo}</td>
@@ -819,14 +892,24 @@ export default function App() {
                 </div>
                 <input placeholder="Descrição" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} />
                 <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.tipo || ''} onChange={e => setFormData({...formData, tipo: e.target.value})}>
-                  <option value="">Tipo</option>
+                  <option value="">Tipo de Material</option>
                   <option value="Bobina">Bobina</option>
                   <option value="Fardo">Fardo</option>
                   <option value="Caixa">Caixa</option>
                   <option value="Pacote">Pacote</option>
                   <option value="Rolo">Rolo</option>
                 </select>
-                <input type="number" placeholder="Estoque Mínimo" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.min || ''} onChange={e => setFormData({...formData, min: parseInt(e.target.value)})} />
+                <div className="grid grid-cols-2 gap-4">
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.fornecedorId || ''} onChange={e => setFormData({...formData, fornecedorId: e.target.value})}>
+                    <option value="">Selecionar Fornecedor</option>
+                    {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.galpaoId || ''} onChange={e => setFormData({...formData, galpaoId: e.target.value})}>
+                    <option value="">Selecionar Galpão</option>
+                    {galpoes.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+                  </select>
+                </div>
+                <input type="number" placeholder="Estoque Mínimo" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.min || ''} onChange={e => setFormData({...formData, min: e.target.value})} />
                 <div className="grid grid-cols-2 gap-4">
                   <input type="number" step="0.001" placeholder="Peso Unitário (kg)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.pesoUnit || ''} onChange={e => setFormData({...formData, pesoUnit: e.target.value})} />
                   <input type="number" step="0.001" placeholder="Valor Unitário (R$)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.valorUnit || ''} onChange={e => setFormData({...formData, valorUnit: e.target.value})} />
@@ -842,20 +925,19 @@ export default function App() {
             )}
             {activeTab === 'funcionarios' && (
               <>
-                <input placeholder="Nome Completo" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} />
+                <input placeholder="Nome Completo (Login)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} />
                 <div className="grid grid-cols-2 gap-4">
-                  <input placeholder="Email (Login)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-                  <input type="password" placeholder="Senha de Acesso" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.senha || ''} onChange={e => setFormData({...formData, senha: e.target.value})} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                  <input type="password" placeholder={editingItem ? "Nova Senha (opcional)" : "Senha de Acesso"} className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.senha || ''} onChange={e => setFormData({...formData, senha: e.target.value})} />
                   <input placeholder="Nº Registro" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.registro || ''} onChange={e => setFormData({...formData, registro: e.target.value})} />
-                  <input placeholder="Função" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.funcao || ''} onChange={e => setFormData({...formData, funcao: e.target.value})} />
                 </div>
-                <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nivel || ''} onChange={e => setFormData({...formData, nivel: e.target.value})}>
-                  <option value="">Nível de Acesso</option>
-                  <option value="admin">Administrador</option>
-                  <option value="funcionario">Funcionário</option>
-                </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <input placeholder="Função" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.funcao || ''} onChange={e => setFormData({...formData, funcao: e.target.value})} />
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nivel || ''} onChange={e => setFormData({...formData, nivel: e.target.value})}>
+                    <option value="">Nível de Acesso</option>
+                    <option value="admin">Administrador</option>
+                    <option value="funcionario">Funcionário</option>
+                  </select>
+                </div>
               </>
             )}
             {activeTab === 'galpoes' && (
