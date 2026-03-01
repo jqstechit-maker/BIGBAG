@@ -88,40 +88,43 @@ const Modal = ({ title, children, onClose, onSave }) => (
   </div>
 );
 
-const GenericTable = ({ headers, data, onEdit, onDelete, renderRow }) => (
-  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
-          <tr>
-            {headers.map(h => <th key={h} className="px-6 py-4">{h}</th>)}
-            <th className="px-6 py-4 text-center">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {data.map((item, idx) => (
-            <tr key={item.id || idx} className="hover:bg-slate-50 transition-colors">
-              {renderRow(item)}
-              <td className="px-6 py-4">
-                <div className="flex items-center justify-center space-x-2">
-                  <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => onDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </td>
+const GenericTable = ({ headers, data, onEdit, onDelete, renderRow }) => {
+  const safeData = Array.isArray(data) ? data : [];
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold">
+            <tr>
+              {headers.map(h => <th key={h} className="px-6 py-4">{h}</th>)}
+              <th className="px-6 py-4 text-center">Ações</th>
             </tr>
-          ))}
-          {data.length === 0 && (
-            <tr><td colSpan={headers.length + 1} className="px-6 py-10 text-center text-slate-400">Nenhum registro encontrado.</td></tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {safeData.map((item, idx) => (
+              <tr key={item.id || idx} className="hover:bg-slate-50 transition-colors">
+                {renderRow(item)}
+                <td className="px-6 py-4">
+                  <div className="flex items-center justify-center space-x-2">
+                    <button onClick={() => onEdit(item)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => onDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {safeData.length === 0 && (
+              <tr><td colSpan={headers.length + 1} className="px-6 py-10 text-center text-slate-400">Nenhum registro encontrado.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -214,11 +217,17 @@ export default function App() {
         fetch('/api/movimentacoes')
       ]);
 
-      setProdutos(await prodRes.json());
-      setFornecedores(await fornRes.json());
-      setGalpoes(await galpRes.json());
-      setFuncionarios(await funcRes.json());
-      setMovimentacoes(await movRes.json());
+      const p = await prodRes.json();
+      const f = await fornRes.json();
+      const g = await galpRes.json();
+      const fu = await funcRes.json();
+      const m = await movRes.json();
+
+      if (Array.isArray(p)) setProdutos(p);
+      if (Array.isArray(f)) setFornecedores(f);
+      if (Array.isArray(g)) setGalpoes(g);
+      if (Array.isArray(fu)) setFuncionarios(fu);
+      if (Array.isArray(m)) setMovimentacoes(m);
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     }
@@ -238,12 +247,12 @@ export default function App() {
     data: ''
   });
 
-  const handleLogin = async (email, password) => {
+  const handleLogin = async (username, password) => {
     try {
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ username, password })
       });
       const data = await res.json();
       if (data.success) {
@@ -913,7 +922,7 @@ export default function App() {
 
 // Re-using Login component from previous turn...
 const Login = ({ onLogin }) => {
-  const [email, setEmail] = useState('admin@admin.com');
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin');
 
   return (
@@ -930,13 +939,13 @@ const Login = ({ onLogin }) => {
           <h1 className="text-3xl font-bold text-white mb-2">VIRTUDE BIGBAG'S</h1>
           <p className="text-slate-400">Controle de Estoque & Logística</p>
         </div>
-        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }}>
+        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(username, password); }}>
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Corporativo</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Usuário</label>
             <input 
-              type="email" 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)}
+              type="text" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
             />
           </div>

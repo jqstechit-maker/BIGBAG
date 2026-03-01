@@ -28,90 +28,165 @@ declare module 'express-session' {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-});
+let pool: any;
+let isMockMode = false;
+
+// Mock Data Store
+const mockData: any = {
+  usuario: [
+    { id: 1, nome: 'admin', email: 'admin@admin', senha: 'admin', registro: '000', funcao: 'Admin', nivel_acesso: 'admin' }
+  ],
+  fornecedores: [],
+  galpoes: [],
+  produtos: [],
+  movimentacoes: []
+};
+
+function createMockPool() {
+  return {
+    query: async (sql: string, params: any[] = []) => {
+      const lowerSql = sql.toLowerCase();
+      
+      if (lowerSql.includes('from usuario')) {
+        if (lowerSql.includes('where nome = ? and senha = ?')) {
+          const user = mockData.usuario.find((u: any) => u.nome === params[0] && u.senha === params[1]);
+          return [user ? [user] : []];
+        }
+        if (lowerSql.includes('where nome = ?')) {
+          const user = mockData.usuario.find((u: any) => u.nome === params[0]);
+          return [user ? [user] : []];
+        }
+        return [mockData.usuario];
+      }
+
+      if (lowerSql.includes('select * from produtos')) return [mockData.produtos];
+      if (lowerSql.includes('select * from fornecedores')) return [mockData.fornecedores];
+      if (lowerSql.includes('select * from galpoes')) return [mockData.galpoes];
+      if (lowerSql.includes('select * from movimentacoes')) return [mockData.movimentacoes];
+
+      if (lowerSql.includes('insert into usuario')) {
+        const newUser = { id: mockData.usuario.length + 1, nome: params[0], email: params[1], senha: params[2], registro: params[3], funcao: params[4], nivel_acesso: params[5] };
+        mockData.usuario.push(newUser);
+        return [{ insertId: newUser.id }];
+      }
+
+      if (lowerSql.includes('insert into produtos')) {
+        const newProd = { id: mockData.produtos.length + 1, codigo: params[0], descricao: params[1], tipo: params[2], fornecedorId: params[3], galpaoId: params[4], estoque: params[5], min: params[6], pesoUnit: params[7], valorUnit: params[8] };
+        mockData.produtos.push(newProd);
+        return [{ insertId: newProd.id }];
+      }
+
+      // Default for CREATE TABLE, etc.
+      return [[]];
+    },
+    getConnection: async () => ({
+      query: async (sql: string, params: any[] = []) => pool.query(sql, params),
+      release: () => {}
+    })
+  };
+}
+
+try {
+  pool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  });
+} catch (err) {
+  console.log('Iniciando em MODO DE TESTE (Banco de dados em memória)');
+  isMockMode = true;
+  pool = createMockPool();
+}
 
 async function initializeDatabase() {
-  const connection = await pool.getConnection();
-  try {
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS fornecedores (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nome VARCHAR(255) NOT NULL,
-        telefone VARCHAR(255),
-        email VARCHAR(255)
-      );
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS galpoes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nome VARCHAR(255) NOT NULL,
-        descricao TEXT
-      );
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS usuario (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nome VARCHAR(255) NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        senha VARCHAR(255) NOT NULL,
-        registro VARCHAR(255),
-        funcao VARCHAR(255),
-        nivel_acesso ENUM('super_admin', 'admin', 'funcionario') NOT NULL
-      );
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS produtos (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        codigo VARCHAR(255) UNIQUE NOT NULL,
-        descricao TEXT NOT NULL,
-        tipo VARCHAR(255),
-        fornecedorId INT,
-        galpaoId INT,
-        estoque INT DEFAULT 0,
-        min INT DEFAULT 0,
-        pesoUnit DECIMAL(10, 3) DEFAULT 0,
-        valorUnit DECIMAL(10, 3) DEFAULT 0,
-        FOREIGN KEY(fornecedorId) REFERENCES fornecedores(id),
-        FOREIGN KEY(galpaoId) REFERENCES galpoes(id)
-      );
-    `);
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS movimentacoes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        data VARCHAR(255) NOT NULL,
-        codigo VARCHAR(255) NOT NULL,
-        produto TEXT NOT NULL,
-        fornecedor VARCHAR(255),
-        tipo ENUM('entrada', 'saida') NOT NULL,
-        qtd INT NOT NULL,
-        peso DECIMAL(10, 3),
-        nf VARCHAR(255),
-        responsavel VARCHAR(255),
-        valorUnit DECIMAL(10, 3),
-        valorTotal DECIMAL(10, 3)
-      );
-    `);
+  if (isMockMode) {
+    console.log('Database initialization skipped in Mock Mode.');
+    return;
+  }
 
-    // Insert default admin if not exists
-    const [rows] = await connection.query('SELECT id FROM usuario WHERE email = ?', ['admin@admin']) as any[];
-    if (rows.length === 0) {
-      console.log('Default admin user not found. Creating...');
-      await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
-        ['Administrador', 'admin@admin', 'admin', '000', 'Admin', 'admin']);
-      console.log('Default admin user created successfully.');
-    } else {
-      console.log('Default admin user already exists.');
+  try {
+    const connection = await pool.getConnection();
+    try {
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS fornecedores (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nome VARCHAR(255) NOT NULL,
+          telefone VARCHAR(255),
+          email VARCHAR(255)
+        );
+      `);
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS galpoes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nome VARCHAR(255) NOT NULL,
+          descricao TEXT
+        );
+      `);
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS usuario (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          nome VARCHAR(255) NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          senha VARCHAR(255) NOT NULL,
+          registro VARCHAR(255),
+          funcao VARCHAR(255),
+          nivel_acesso ENUM('super_admin', 'admin', 'funcionario') NOT NULL
+        );
+      `);
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS produtos (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          codigo VARCHAR(255) UNIQUE NOT NULL,
+          descricao TEXT NOT NULL,
+          tipo VARCHAR(255),
+          fornecedorId INT,
+          galpaoId INT,
+          estoque INT DEFAULT 0,
+          min INT DEFAULT 0,
+          pesoUnit DECIMAL(10, 3) DEFAULT 0,
+          valorUnit DECIMAL(10, 3) DEFAULT 0,
+          FOREIGN KEY(fornecedorId) REFERENCES fornecedores(id),
+          FOREIGN KEY(galpaoId) REFERENCES galpoes(id)
+        );
+      `);
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS movimentacoes (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          data VARCHAR(255) NOT NULL,
+          codigo VARCHAR(255) NOT NULL,
+          produto TEXT NOT NULL,
+          fornecedor VARCHAR(255),
+          tipo ENUM('entrada', 'saida') NOT NULL,
+          qtd INT NOT NULL,
+          peso DECIMAL(10, 3),
+          nf VARCHAR(255),
+          responsavel VARCHAR(255),
+          valorUnit DECIMAL(10, 3),
+          valorTotal DECIMAL(10, 3)
+        );
+      `);
+
+      // Insert default admin if not exists
+      const [rows] = await connection.query('SELECT id FROM usuario WHERE nome = ?', ['admin']) as any[];
+      if (rows.length === 0) {
+        console.log('Default admin user not found. Creating...');
+        await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
+          ['admin', 'admin@admin', 'admin', '000', 'Admin', 'admin']);
+        console.log('Default admin user created successfully.');
+      } else {
+        console.log('Default admin user already exists.');
+      }
+    } finally {
+      connection.release();
     }
-  } finally {
-    connection.release();
+  } catch (err) {
+    console.log('Falha ao conectar ao MySQL. Ativando MODO DE TESTE.');
+    isMockMode = true;
+    pool = createMockPool();
   }
 }
 
@@ -164,8 +239,8 @@ async function startServer() {
 
   // Auth
   app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    const [rows] = await pool.query('SELECT * FROM usuario WHERE email = ? AND senha = ?', [email, password]) as any[];
+    const { username, password } = req.body;
+    const [rows] = await pool.query('SELECT * FROM usuario WHERE nome = ? AND senha = ?', [username, password]) as any[];
     if (rows.length > 0) {
       const user = rows[0];
       
