@@ -34,19 +34,39 @@ let isMockMode = false;
 // Mock Data Store
 const mockData: any = {
   usuario: [
-    { id: 1, nome: 'admin', email: 'admin@admin', senha: 'admin', registro: '000', funcao: 'Admin', nivel_acesso: 'admin' }
+    { id: 1, nome: 'admin', email: 'admin@admin', senha: 'admin', registro: '000', funcao: 'Admin', nivel_acesso: 'admin' },
+    { id: 2, nome: 'João Silva', email: 'joao@virtude.com', senha: '123', registro: '001', funcao: 'Auxiliar de Produção', nivel_acesso: 'funcionario' },
+    { id: 3, nome: 'Maria Santos', email: 'maria@virtude.com', senha: '123', registro: '002', funcao: 'Gerente de Logística', nivel_acesso: 'admin' },
+    { id: 4, nome: 'Pedro Oliveira', email: 'pedro@virtude.com', senha: '123', registro: '003', funcao: 'Operador de Empilhadeira', nivel_acesso: 'funcionario' },
+    { id: 5, nome: 'Ana Costa', email: 'ana@virtude.com', senha: '123', registro: '004', funcao: 'Conferente', nivel_acesso: 'funcionario' }
   ],
   fornecedores: [
-    { id: 1, nome: 'Fornecedor Exemplo A', telefone: '(11) 9999-9999', email: 'contato@exemplo.com' }
+    { id: 1, nome: 'Fornecedor Alfa', telefone: '(11) 1111-1111', email: 'alfa@forn.com' },
+    { id: 2, nome: 'Fornecedor Beta', telefone: '(22) 2222-2222', email: 'beta@forn.com' },
+    { id: 3, nome: 'Fornecedor Gama', telefone: '(33) 3333-3333', email: 'gama@forn.com' },
+    { id: 4, nome: 'Fornecedor Delta', telefone: '(44) 4444-4444', email: 'delta@forn.com' },
+    { id: 5, nome: 'Fornecedor Epsilon', telefone: '(55) 5555-5555', email: 'epsilon@forn.com' }
   ],
   galpoes: [
-    { id: 1, nome: 'Almoxarifado Central', descricao: 'Principal local de armazenamento' }
+    { id: 1, nome: 'Galpão Norte', descricao: 'Armazenamento Principal' },
+    { id: 2, nome: 'Galpão Sul', descricao: 'Armazenamento Secundário' }
   ],
   produtos: [
-    { id: 1, codigo: 'VT-0001', descricao: 'BigBag Standard', tipo: 'Fardo', fornecedorId: 1, galpaoId: 1, estoque: 50, min: 10, pesoUnit: 1.5, valorUnit: 45.0 }
+    { id: 1, codigo: 'VT-001', descricao: 'Tecido', tipo: 'Fardo', fornecedorId: 1, galpaoId: 1, estoque: 50, min: 10, pesoUnit: 2.0, valorUnit: 50.0 },
+    { id: 2, codigo: 'VL-001', descricao: 'Linner', tipo: 'Fardo', fornecedorId: 2, galpaoId: 1, estoque: 50, min: 10, pesoUnit: 2.0, valorUnit: 60.0 },
+    { id: 3, codigo: 'VA-001', descricao: 'Alça', tipo: 'Fardo', fornecedorId: 3, galpaoId: 2, estoque: 50, min: 10, pesoUnit: 2.0, valorUnit: 70.0 },
+    { id: 4, codigo: 'VM-001', descricao: 'Tecido Especial', tipo: 'Fardo', fornecedorId: 4, galpaoId: 2, estoque: 100, min: 10, pesoUnit: 2.0, valorUnit: 80.0 },
+    { id: 5, codigo: 'VT-002', descricao: 'Linner Reforçado', tipo: 'Fardo', fornecedorId: 5, galpaoId: 1, estoque: 100, min: 10, pesoUnit: 2.0, valorUnit: 90.0 }
   ],
   movimentacoes: [
-    { id: 1, data: new Date().toLocaleString(), codigo: 'VT-0001', produto: 'BigBag Standard', fornecedor: 'Fornecedor Exemplo A', tipo: 'entrada', qtd: 50, peso: 75.0, nf: '12345', responsavel: 'admin', valorUnit: 45.0, valorTotal: 2250.0 }
+    { id: 1, data: '01/03/2026 10:00:00', codigo: 'VT-001', produto: 'Tecido', fornecedor: 'Fornecedor Alfa', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-101', responsavel: 'admin', valorUnit: 50.0, valorTotal: 5000.0, produtoId: 1 },
+    { id: 2, data: '01/03/2026 10:05:00', codigo: 'VL-001', produto: 'Linner', fornecedor: 'Fornecedor Beta', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-102', responsavel: 'admin', valorUnit: 60.0, valorTotal: 6000.0, produtoId: 2 },
+    { id: 3, data: '01/03/2026 10:10:00', codigo: 'VA-001', produto: 'Alça', fornecedor: 'Fornecedor Gama', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-103', responsavel: 'admin', valorUnit: 70.0, valorTotal: 7000.0, produtoId: 3 },
+    { id: 4, data: '01/03/2026 10:15:00', codigo: 'VM-001', produto: 'Tecido Especial', fornecedor: 'Fornecedor Delta', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-104', responsavel: 'admin', valorUnit: 80.0, valorTotal: 8000.0, produtoId: 4 },
+    { id: 5, data: '01/03/2026 10:20:00', codigo: 'VT-002', produto: 'Linner Reforçado', fornecedor: 'Fornecedor Epsilon', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-105', responsavel: 'admin', valorUnit: 90.0, valorTotal: 9000.0, produtoId: 5 },
+    { id: 6, data: '01/03/2026 14:00:00', codigo: 'VT-001', produto: 'Tecido', fornecedor: 'Fornecedor Alfa', tipo: 'saida', qtd: 50, peso: 100.0, nf: 'NF-S01', responsavel: 'João Silva', valorUnit: 50.0, valorTotal: 2500.0, produtoId: 1 },
+    { id: 7, data: '01/03/2026 14:05:00', codigo: 'VL-001', produto: 'Linner', fornecedor: 'Fornecedor Beta', tipo: 'saida', qtd: 50, peso: 100.0, nf: 'NF-S02', responsavel: 'João Silva', valorUnit: 60.0, valorTotal: 3000.0, produtoId: 2 },
+    { id: 8, data: '01/03/2026 14:10:00', codigo: 'VA-001', produto: 'Alça', fornecedor: 'Fornecedor Gama', tipo: 'saida', qtd: 50, peso: 100.0, nf: 'NF-S03', responsavel: 'João Silva', valorUnit: 70.0, valorTotal: 3500.0, produtoId: 3 }
   ]
 };
 
@@ -68,10 +88,32 @@ function createMockPool() {
     }
 
     // SELECT OTHERS
-    if (lowerSql.includes('select * from produtos')) return [mockData.produtos];
-    if (lowerSql.includes('select * from fornecedores')) return [mockData.fornecedores];
-    if (lowerSql.includes('select * from galpoes')) return [mockData.galpoes];
-    if (lowerSql.includes('select * from movimentacoes')) {
+    if (lowerSql.includes('from produtos')) {
+      if (lowerSql.includes('where id = ?')) {
+        const item = mockData.produtos.find((p: any) => p.id === Number(params[0]));
+        return [item ? [item] : []];
+      }
+      return [mockData.produtos];
+    }
+    if (lowerSql.includes('from fornecedores')) {
+      if (lowerSql.includes('where id = ?')) {
+        const item = mockData.fornecedores.find((f: any) => f.id === Number(params[0]));
+        return [item ? [item] : []];
+      }
+      return [mockData.fornecedores];
+    }
+    if (lowerSql.includes('from galpoes')) {
+      if (lowerSql.includes('where id = ?')) {
+        const item = mockData.galpoes.find((g: any) => g.id === Number(params[0]));
+        return [item ? [item] : []];
+      }
+      return [mockData.galpoes];
+    }
+    if (lowerSql.includes('from movimentacoes')) {
+      if (lowerSql.includes('where id = ?')) {
+        const item = mockData.movimentacoes.find((m: any) => m.id === Number(params[0]));
+        return [item ? [item] : []];
+      }
       const sorted = [...mockData.movimentacoes].sort((a, b) => b.id - a.id);
       return [sorted];
     }
@@ -331,10 +373,36 @@ async function initializeDatabase() {
       // Insert default admin if not exists
       const [rows] = await connection.query('SELECT id FROM usuario WHERE nome = ?', ['admin']) as any[];
       if (rows.length === 0) {
-        console.log('Default admin user not found. Creating...');
+        console.log('Default admin user not found. Creating initial data...');
+        
+        // Users
         await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
           ['admin', 'admin@admin', 'admin', '000', 'Admin', 'admin']);
-        console.log('Default admin user created successfully.');
+        await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
+          ['João Silva', 'joao@virtude.com', '123', '001', 'Auxiliar de Produção', 'funcionario']);
+        await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
+          ['Maria Santos', 'maria@virtude.com', '123', '002', 'Gerente de Logística', 'admin']);
+        
+        // Warehouses
+        await connection.query('INSERT INTO galpoes (nome, descricao) VALUES (?, ?)', ['Galpão Norte', 'Armazenamento Principal']);
+        await connection.query('INSERT INTO galpoes (nome, descricao) VALUES (?, ?)', ['Galpão Sul', 'Armazenamento Secundário']);
+
+        // Suppliers
+        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Alfa', '(11) 1111-1111', 'alfa@forn.com']);
+        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Beta', '(22) 2222-2222', 'beta@forn.com']);
+        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Gama', '(33) 3333-3333', 'gama@forn.com']);
+        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Delta', '(44) 4444-4444', 'delta@forn.com']);
+        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Epsilon', '(55) 5555-5555', 'epsilon@forn.com']);
+
+        // Products
+        await connection.query('INSERT INTO produtos (codigo, descricao, tipo, fornecedorId, galpaoId, estoque, min, pesoUnit, valorUnit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+          ['VT-001', 'Tecido', 'Fardo', 1, 1, 50, 10, 2.0, 50.0]);
+        await connection.query('INSERT INTO produtos (codigo, descricao, tipo, fornecedorId, galpaoId, estoque, min, pesoUnit, valorUnit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+          ['VL-001', 'Linner', 'Fardo', 2, 1, 50, 10, 2.0, 60.0]);
+        await connection.query('INSERT INTO produtos (codigo, descricao, tipo, fornecedorId, galpaoId, estoque, min, pesoUnit, valorUnit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+          ['VA-001', 'Alça', 'Fardo', 3, 2, 50, 10, 2.0, 70.0]);
+
+        console.log('Initial data created successfully.');
       } else {
         console.log('Default admin user already exists.');
       }
@@ -407,6 +475,32 @@ async function startServer() {
   });
 
   // Auth
+  app.get('/api/me', (req, res) => {
+    if (req.session && req.session.user_id) {
+      // Find user in pool or mock
+      pool.query('SELECT id, nome, email, nivel_acesso FROM usuario WHERE id = ?', [req.session.user_id])
+        .then(([rows]: any) => {
+          if (rows.length > 0) {
+            const user = rows[0];
+            res.json({ 
+              success: true, 
+              user: { 
+                id: user.id, 
+                nome: user.nome, 
+                email: user.email, 
+                nivel: user.nivel_acesso 
+              } 
+            });
+          } else {
+            res.status(401).json({ success: false });
+          }
+        })
+        .catch(() => res.status(500).json({ success: false }));
+    } else {
+      res.status(401).json({ success: false });
+    }
+  });
+
   app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     const [rows] = await pool.query('SELECT * FROM usuario WHERE nome = ? AND senha = ?', [username, password]) as any[];

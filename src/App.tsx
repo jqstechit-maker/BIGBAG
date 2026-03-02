@@ -129,6 +129,7 @@ const GenericTable = ({ headers, data, onEdit, onDelete, renderRow }) => {
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState('admin'); // 'admin' or 'funcionario'
+  const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [estoqueViewMode, setEstoqueViewMode] = useState('grid'); // 'grid' or 'list'
   
@@ -202,6 +203,21 @@ export default function App() {
 
   // Fetch Data on Load
   useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setUserRole(data.user.nivel);
+            setCurrentUser(data.user);
+            setIsLoggedIn(true);
+          }
+        }
+      } catch (e) {}
+    };
+    checkSession();
+
     if (isLoggedIn) {
       fetchData();
     }
@@ -264,6 +280,7 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         setUserRole(data.user.nivel);
+        setCurrentUser(data.user);
         setIsLoggedIn(true);
       }
     } catch (err) {
@@ -372,6 +389,11 @@ export default function App() {
     try {
       let response;
       if (activeTab === 'produtos' || activeTab === 'estoque') {
+        if (!formData.descricao || !formData.tipo) {
+          alert('Por favor, preencha a descrição e o tipo do produto.');
+          return;
+        }
+
         const finalCodigo = formData.codigoPrefix && formData.codigoSuffix 
           ? `${formData.codigoPrefix}-${formData.codigoSuffix}` 
           : formData.codigo;
@@ -380,8 +402,8 @@ export default function App() {
           codigo: finalCodigo,
           descricao: formData.descricao,
           tipo: formData.tipo,
-          fornecedorId: Number(formData.fornecedorId),
-          galpaoId: Number(formData.galpaoId),
+          fornecedorId: formData.fornecedorId ? Number(formData.fornecedorId) : null,
+          galpaoId: formData.galpaoId ? Number(formData.galpaoId) : null,
           min: Number(formData.min) || 0,
           pesoUnit: parseFloat(formData.pesoUnit) || 0,
           valorUnit: parseFloat(formData.valorUnit) || 0
@@ -393,6 +415,19 @@ export default function App() {
           body: JSON.stringify(productData)
         });
       } else if (activeTab === 'fornecedores' || activeTab === 'funcionarios' || activeTab === 'galpoes') {
+        if (activeTab === 'fornecedores' && !formData.nome) {
+          alert('Por favor, informe o nome do fornecedor.');
+          return;
+        }
+        if (activeTab === 'funcionarios' && (!formData.nome || (!editingItem && !formData.senha))) {
+          alert('Por favor, informe o nome e a senha do funcionário.');
+          return;
+        }
+        if (activeTab === 'galpoes' && !formData.nome) {
+          alert('Por favor, informe o nome do galpão.');
+          return;
+        }
+
         // Clean up formData for these types if needed, but for now just send
         const cleanData = { ...formData };
         if (activeTab === 'funcionarios') {
@@ -406,6 +441,10 @@ export default function App() {
           body: JSON.stringify(cleanData)
         });
       } else if (activeTab === 'entradas' || activeTab === 'saidas') {
+        if (!formData.produtoId || !formData.quantidade) {
+          alert('Por favor, selecione o produto e informe a quantidade.');
+          return;
+        }
         const prod = produtos.find(p => p.id === parseInt(formData.produtoId));
         if (!prod) {
           alert('Erro: Produto não selecionado ou não encontrado no sistema.');
@@ -432,7 +471,7 @@ export default function App() {
           qtd: qtd,
           peso: parseFloat(formData.peso) || 0,
           nf: formData.nf || 'N/A',
-          responsavel: formData.responsavel || 'Administrador',
+          responsavel: formData.responsavel || currentUser?.nome || 'Administrador',
           valorUnit: valorUnit,
           valorTotal: valorTotal,
           produtoId: prod.id
@@ -538,7 +577,7 @@ export default function App() {
             <h1 className="text-3xl font-bold text-slate-900 capitalize">{activeTab}</h1>
             <p className="text-slate-500 mt-1">Gestão industrial em tempo real.</p>
           </div>
-          {activeTab !== 'dashboard' && activeTab !== 'estoque' && (
+          {activeTab !== 'dashboard' && (
             <button onClick={openAddModal} className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all">
               <Plus className="w-5 h-5 mr-2" />
               {activeTab === 'entradas' || activeTab === 'saidas' ? 'Registrar' : 'Novo Registro'}
@@ -720,6 +759,11 @@ export default function App() {
                       const matchDesc = p.descricao.toLowerCase().includes(filters.descricao.toLowerCase());
                       const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
                       return matchCodigo && matchDesc && matchTipo;
+                    }).map(p => {
+                      const productMovements = movimentacoes.filter(m => m.produtoId === p.id);
+                      const totalEntrada = productMovements.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
+                      const totalSaida = productMovements.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0);
+                      return { ...p, totalEntrada, totalSaida };
                     }).map(p => (
                     <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
                       <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -750,19 +794,27 @@ export default function App() {
                           <Package className="w-5 h-5" />
                         </div>
                       </div>
-                      <div className="flex items-end justify-between">
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="bg-green-50 p-3 rounded-xl border border-green-100">
+                          <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Entradas</p>
+                          <p className="text-xl font-black text-green-700">{p.totalEntrada}</p>
+                        </div>
+                        <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                          <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">Saídas</p>
+                          <p className="text-xl font-black text-red-700">{p.totalSaida}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-end justify-between border-t border-slate-50 pt-4">
                         <div>
                           <p className="text-xs text-slate-500">Saldo Atual</p>
                           <p className="text-3xl font-black text-slate-900">{p.estoque}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">Mínimo: {p.min}</p>
-                          <div className="w-24 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                            <div 
-                              className={`h-full transition-all duration-500 ${p.estoque < p.min ? 'bg-red-500' : 'bg-blue-500'}`}
-                              style={{ width: `${Math.min((p.estoque / (p.min * 2)) * 100, 100)}%` }}
-                            />
-                          </div>
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${p.estoque < p.min ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            {p.estoque < p.min ? 'Abaixo do Mínimo' : 'Estoque OK'}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -770,12 +822,17 @@ export default function App() {
                 </div>
                 ) : (
                   <GenericTable 
-                    headers={['Código', 'Descrição', 'Tipo', 'Saldo Atual', 'Mínimo', 'Status']}
+                    headers={['Código', 'Descrição', 'Tipo', 'Entradas', 'Saídas', 'Saldo Atual', 'Status']}
                     data={produtos.filter(p => {
                       const matchCodigo = p.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
                       const matchDesc = p.descricao.toLowerCase().includes(filters.descricao.toLowerCase());
                       const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
                       return matchCodigo && matchDesc && matchTipo;
+                    }).map(p => {
+                      const productMovements = movimentacoes.filter(m => m.produtoId === p.id);
+                      const totalEntrada = productMovements.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
+                      const totalSaida = productMovements.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0);
+                      return { ...p, totalEntrada, totalSaida };
                     })}
                     onDelete={(id) => {
                       handleDelete(id);
@@ -795,10 +852,11 @@ export default function App() {
                         <td className="px-6 py-4 font-mono text-blue-600 text-xs">{p.codigo}</td>
                         <td className="px-6 py-4 font-bold text-xs">{p.descricao}</td>
                         <td className="px-6 py-4 text-xs text-slate-500">{p.tipo}</td>
+                        <td className="px-6 py-4 text-center font-bold text-green-600">{p.totalEntrada}</td>
+                        <td className="px-6 py-4 text-center font-bold text-red-600">{p.totalSaida}</td>
                         <td className={`px-6 py-4 text-center font-black text-lg ${p.estoque < p.min ? 'text-red-600' : 'text-slate-900'}`}>
                           {p.estoque}
                         </td>
-                        <td className="px-6 py-4 text-center text-xs text-slate-400 font-bold">{p.min}</td>
                         <td className="px-6 py-4">
                           <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${p.estoque < p.min ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                             {p.estoque < p.min ? 'Abaixo do Mínimo' : 'Estoque OK'}
