@@ -122,6 +122,16 @@ function createMockPool() {
       return [sorted];
     }
 
+    if (lowerSql.includes('from movimentacoes_internas')) {
+      if (!mockData.movimentacoes_internas) mockData.movimentacoes_internas = [];
+      if (lowerSql.includes('where id = ?')) {
+        const item = mockData.movimentacoes_internas.find((m: any) => m.id === Number(params[0]));
+        return [item ? [item] : []];
+      }
+      const sorted = [...mockData.movimentacoes_internas].sort((a, b) => b.id - a.id);
+      return [sorted.slice(0, 100)];
+    }
+
     // INSERT USUARIO
     if (lowerSql.includes('insert into usuario')) {
       const newUser = { 
@@ -179,6 +189,20 @@ function createMockPool() {
         produtoId: Number(params[11])
       };
       mockData.movimentacoes.push(newItem);
+      return [{ insertId: newItem.id }];
+    }
+
+    // INSERT MOVIMENTACOES INTERNAS
+    if (lowerSql.includes('insert into movimentacoes_internas')) {
+      if (!mockData.movimentacoes_internas) mockData.movimentacoes_internas = [];
+      const newItem = { 
+        id: mockData.movimentacoes_internas.length + 1, 
+        data: params[0], codigo: params[1], produto: params[2], tipo: params[3],
+        qtd: Number(params[4]), peso: Number(params[5]), responsavel: params[6], 
+        destino: params[7], valorUnit: Number(params[8]), valorTotal: Number(params[9]),
+        produtoId: Number(params[10])
+      };
+      mockData.movimentacoes_internas.push(newItem);
       return [{ insertId: newItem.id }];
     }
 
@@ -265,6 +289,10 @@ function createMockPool() {
       if (lowerSql.includes('galpoes')) mockData.galpoes = mockData.galpoes.filter((g: any) => g.id !== id);
       if (lowerSql.includes('usuario')) mockData.usuario = mockData.usuario.filter((u: any) => u.id !== id);
       if (lowerSql.includes('movimentacoes')) mockData.movimentacoes = mockData.movimentacoes.filter((m: any) => m.id !== id);
+      if (lowerSql.includes('movimentacoes_internas')) {
+        if (!mockData.movimentacoes_internas) mockData.movimentacoes_internas = [];
+        mockData.movimentacoes_internas = mockData.movimentacoes_internas.filter((m: any) => m.id !== id);
+      }
       return [{ affectedRows: 1 }];
     }
 
@@ -368,6 +396,24 @@ async function initializeDatabase() {
           peso DECIMAL(10, 3),
           nf VARCHAR(255),
           responsavel VARCHAR(255),
+          valorUnit DECIMAL(10, 3),
+          valorTotal DECIMAL(10, 3),
+          produtoId INT,
+          FOREIGN KEY(produtoId) REFERENCES produtos(id) ON DELETE SET NULL
+        );
+      `);
+
+      await connection.query(`
+        CREATE TABLE IF NOT EXISTS movimentacoes_internas (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          data VARCHAR(255) NOT NULL,
+          codigo VARCHAR(255) NOT NULL,
+          produto TEXT NOT NULL,
+          tipo VARCHAR(100) NOT NULL,
+          qtd INT NOT NULL,
+          peso DECIMAL(10, 3),
+          responsavel VARCHAR(255),
+          destino VARCHAR(255),
           valorUnit DECIMAL(10, 3),
           valorTotal DECIMAL(10, 3),
           produtoId INT,
@@ -653,6 +699,96 @@ async function startServer() {
       }
 
       await connection.query('DELETE FROM movimentacoes WHERE id = ?', [id]);
+      
+      await connection.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await connection.rollback();
+      res.status(400).json({ error: err.message });
+    } finally {
+      connection.release();
+    }
+  });
+
+  // Movimentações Internas
+  app.get('/api/movimentacoes_internas', async (req, res) => {
+    const [rows] = await pool.query('SELECT * FROM movimentacoes_internas ORDER BY id DESC LIMIT 100');
+    res.json(rows);
+  });
+
+  app.post('/api/movimentacoes_internas', async (req, res) => {
+    const { data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId } = req.body;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      await connection.query(
+        'INSERT INTO movimentacoes_internas (data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId]
+      );
+      
+      await connection.query('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
+      
+      await connection.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await connection.rollback();
+      res.status(400).json({ error: err.message });
+    } finally {
+      connection.release();
+    }
+  });
+
+  app.put('/api/movimentacoes_internas/:id', checkAccess(['admin']), async (req, res) => {
+    const { id } = req.params;
+    const { qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId } = req.body;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      
+      const [oldMovs] = await connection.query('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      if (oldMovs.length === 0) throw new Error('Movimentação não encontrada');
+      const oldMov = oldMovs[0];
+
+      // Revert old stock (add back)
+      if (oldMov.produtoId) {
+        await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [oldMov.qtd, oldMov.produtoId]);
+      }
+
+      // Apply new stock (subtract)
+      await connection.query('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
+
+      // Update movement
+      await connection.query(
+        'UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorUnit = ?, valorTotal = ?, produtoId = ? WHERE id = ?',
+        [qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId, id]
+      );
+
+      await connection.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await connection.rollback();
+      res.status(400).json({ error: err.message });
+    } finally {
+      connection.release();
+    }
+  });
+
+  app.delete('/api/movimentacoes_internas/:id', checkAccess(['admin']), async (req, res) => {
+    const { id } = req.params;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      
+      const [movs] = await connection.query('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      if (movs.length === 0) throw new Error('Movimentação não encontrada');
+      const mov = movs[0];
+
+      // Revert stock (add back)
+      if (mov.produtoId) {
+        await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [mov.qtd, mov.produtoId]);
+      }
+
+      await connection.query('DELETE FROM movimentacoes_internas WHERE id = ?', [id]);
       
       await connection.commit();
       res.json({ success: true });

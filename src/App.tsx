@@ -200,6 +200,7 @@ export default function App() {
   const [galpoes, setGalpoes] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [movimentacoes, setMovimentacoes] = useState([]);
+  const [movimentacoesInternas, setMovimentacoesInternas] = useState([]);
 
   // Fetch Data on Load
   useEffect(() => {
@@ -225,12 +226,13 @@ export default function App() {
 
   const fetchData = async () => {
     try {
-      const [prodRes, fornRes, galpRes, funcRes, movRes] = await Promise.all([
+      const [prodRes, fornRes, galpRes, funcRes, movRes, movIntRes] = await Promise.all([
         fetch('/api/produtos'),
         fetch('/api/fornecedores'),
         fetch('/api/galpoes'),
         fetch('/api/funcionarios'),
-        fetch('/api/movimentacoes')
+        fetch('/api/movimentacoes'),
+        fetch('/api/movimentacoes_internas')
       ]);
 
       const p = await prodRes.json();
@@ -238,12 +240,14 @@ export default function App() {
       const g = await galpRes.json();
       const fu = await funcRes.json();
       const m = await movRes.json();
+      const mi = await movIntRes.json();
 
       if (Array.isArray(p)) setProdutos(p);
       if (Array.isArray(f)) setFornecedores(f);
       if (Array.isArray(g)) setGalpoes(g);
       if (Array.isArray(fu)) setFuncionarios(fu);
       if (Array.isArray(m)) setMovimentacoes(m);
+      if (Array.isArray(mi)) setMovimentacoesInternas(mi);
     } catch (err) {
       console.error('Erro ao buscar dados:', err);
     }
@@ -385,6 +389,9 @@ export default function App() {
     if (activeTab === 'entradas' || activeTab === 'saidas') {
       url = editingItem ? `/api/movimentacoes/${editingItem.id}` : '/api/movimentacoes';
     }
+    if (activeTab === 'internas') {
+      url = editingItem ? `/api/movimentacoes_internas/${editingItem.id}` : '/api/movimentacoes_internas';
+    }
 
     try {
       let response;
@@ -482,6 +489,39 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(movementData)
         });
+      } else if (activeTab === 'internas') {
+        if (!formData.produtoId || !formData.quantidade || !formData.tipoInterno) {
+          alert('Por favor, preencha todos os campos obrigatórios.');
+          return;
+        }
+        const prod = produtos.find(p => p.id === parseInt(formData.produtoId));
+        if (!prod) return;
+
+        const qtd = parseInt(formData.quantidade);
+        if (prod.estoque < qtd) {
+          alert(`Estoque insuficiente! Saldo atual: ${prod.estoque}`);
+          return;
+        }
+
+        const internalData = {
+          data: timestamp,
+          codigo: prod.codigo,
+          produto: prod.descricao,
+          tipo: formData.tipoInterno,
+          qtd: qtd,
+          peso: parseFloat(formData.peso) || 0,
+          responsavel: formData.responsavel || currentUser?.nome || 'Admin',
+          destino: formData.destino || (formData.tipoInterno === 'Produção' ? 'Linha de Produção' : 'Outro Galpão'),
+          valorUnit: prod.valorUnit || 0,
+          valorTotal: (prod.valorUnit || 0) * qtd,
+          produtoId: prod.id
+        };
+
+        response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(internalData)
+        });
       }
       
       if (response && !response.ok) {
@@ -505,6 +545,9 @@ export default function App() {
     let url = `/api/${tabForUrl}/${id}`;
     if (activeTab === 'entradas' || activeTab === 'saidas') {
       url = `/api/movimentacoes/${id}`;
+    }
+    if (activeTab === 'internas') {
+      url = `/api/movimentacoes_internas/${id}`;
     }
 
     try {
@@ -546,6 +589,7 @@ export default function App() {
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-8 mb-4 px-4">Logística</p>
           <SidebarItem icon={ArrowDownCircle} label="Entradas" active={activeTab === 'entradas'} onClick={() => setActiveTab('entradas')} />
           <SidebarItem icon={ArrowUpCircle} label="Saídas" active={activeTab === 'saidas'} onClick={() => setActiveTab('saidas')} />
+          <SidebarItem icon={TrendingUp} label="Mov. Internas" active={activeTab === 'internas'} onClick={() => setActiveTab('internas')} />
           <SidebarItem icon={ClipboardList} label="Estoque" active={activeTab === 'estoque'} onClick={() => setActiveTab('estoque')} 
             badge={produtos.filter(p => p.estoque < p.min).length || null} 
           />
@@ -574,13 +618,15 @@ export default function App() {
       <main className="flex-1 ml-72 p-10">
         <header className="flex items-center justify-between mb-10">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 capitalize">{activeTab}</h1>
+            <h1 className="text-3xl font-bold text-slate-900 capitalize">
+              {activeTab === 'internas' ? 'Movimentações Internas' : activeTab}
+            </h1>
             <p className="text-slate-500 mt-1">Gestão industrial em tempo real.</p>
           </div>
           {activeTab !== 'dashboard' && (
             <button onClick={openAddModal} className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all">
               <Plus className="w-5 h-5 mr-2" />
-              {activeTab === 'entradas' || activeTab === 'saidas' ? 'Registrar' : 'Novo Registro'}
+              {activeTab === 'entradas' || activeTab === 'saidas' || activeTab === 'internas' ? 'Registrar' : 'Novo Registro'}
             </button>
           )}
         </header>
@@ -588,7 +634,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
             
-            {activeTab === 'dashboard' && <Dashboard produtos={produtos} movimentacoes={movimentacoes} />}
+            {activeTab === 'dashboard' && <Dashboard produtos={produtos} movimentacoes={movimentacoes} movimentacoesInternas={movimentacoesInternas} />}
 
             {activeTab === 'produtos' && (
               <>
@@ -869,6 +915,41 @@ export default function App() {
               </>
             )}
 
+            {activeTab === 'internas' && (
+              <>
+                <FilterBar fields={['data', 'codigo', 'responsavel']} />
+                <GenericTable 
+                  headers={['Data', 'Código', 'Produto', 'Tipo', 'Qtd', 'Peso', 'Valor Unit.', 'Valor Total', 'Responsável', 'Destino']}
+                  data={movimentacoesInternas.filter(m => {
+                    const matchData = filters.data ? m.data.includes(filters.data.split('-').reverse().join('/')) : true;
+                    const matchCodigo = m.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
+                    const matchResp = filters.responsavel ? m.responsavel === filters.responsavel : true;
+                    return matchData && matchCodigo && matchResp;
+                  })}
+                  onDelete={handleDelete}
+                  onEdit={(item) => { setEditingItem(item); setFormData({ ...item, tipoInterno: item.tipo, quantidade: item.qtd }); setShowModal(true); }}
+                  renderRow={(m) => (
+                    <>
+                      <td className="px-6 py-4 text-slate-500 text-xs">{m.data}</td>
+                      <td className="px-6 py-4 font-mono text-blue-600 text-xs">{m.codigo}</td>
+                      <td className="px-6 py-4 font-bold text-xs">{m.produto}</td>
+                      <td className="px-6 py-4 text-xs">
+                        <span className={`px-2 py-1 rounded-lg font-bold ${m.tipo === 'Produção' ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {m.tipo}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center font-bold text-xs text-red-600">-{m.qtd}</td>
+                      <td className="px-6 py-4 text-xs">{Number(m.peso).toFixed(3)} kg</td>
+                      <td className="px-6 py-4 text-xs">R$ {Number(m.valorUnit || 0).toFixed(3)}</td>
+                      <td className="px-6 py-4 text-xs font-bold">R$ {Number(m.valorTotal || 0).toFixed(3)}</td>
+                      <td className="px-6 py-4 text-xs">{m.responsavel}</td>
+                      <td className="px-6 py-4 text-xs font-medium">{m.destino}</td>
+                    </>
+                  )}
+                />
+              </>
+            )}
+
             {activeTab === 'relatorios' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
@@ -912,6 +993,61 @@ export default function App() {
                     >
                       <FileText className="w-4 h-4 mr-2" /> Exportar PDF (.pdf)
                     </button>
+                  </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm md:col-span-2">
+                  <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6">
+                    <ClipboardList className="w-8 h-8 text-amber-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-800 mb-2">Balanço de Estoque</h3>
+                  <p className="text-slate-500 mb-8 text-sm">Verifique a consistência entre as movimentações registradas e o saldo atual em estoque.</p>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase">Produto</th>
+                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Entradas</th>
+                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Saídas Totais</th>
+                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Saldo Teórico</th>
+                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Saldo Atual</th>
+                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {produtos.map(p => {
+                          const productMovs = movimentacoes.filter(m => m.produtoId === p.id);
+                          const productMovsInt = movimentacoesInternas.filter(m => m.produtoId === p.id);
+                          
+                          const totalEntrada = productMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
+                          const totalSaida = productMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0) + productMovsInt.reduce((acc, m) => acc + m.qtd, 0);
+                          
+                          const theoretical = totalEntrada - totalSaida;
+                          const diff = theoretical - p.estoque;
+                          
+                          return (
+                            <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                              <td className="py-4 px-2">
+                                <p className="text-xs font-bold text-slate-800">{p.descricao}</p>
+                                <p className="text-[10px] font-mono text-blue-600">{p.codigo}</p>
+                              </td>
+                              <td className="py-4 px-2 text-center text-xs font-bold text-green-600">{totalEntrada}</td>
+                              <td className="py-4 px-2 text-center text-xs font-bold text-red-600">{totalSaida}</td>
+                              <td className="py-4 px-2 text-center text-xs font-bold text-slate-700">{theoretical}</td>
+                              <td className="py-4 px-2 text-center text-xs font-black text-slate-900">{p.estoque}</td>
+                              <td className="py-4 px-2 text-center">
+                                {diff === 0 ? (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-bold uppercase">Consistente</span>
+                                ) : (
+                                  <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-[10px] font-bold uppercase">Divergente ({diff})</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -1064,6 +1200,30 @@ export default function App() {
                 )}
               </>
             )}
+            {activeTab === 'internas' && (
+              <>
+                <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.produtoId || ''} onChange={e => setFormData({...formData, produtoId: e.target.value})}>
+                  <option value="">Selecione o Produto</option>
+                  {produtos.map(p => <option key={p.id} value={p.id}>{p.descricao} (Saldo: {p.estoque})</option>)}
+                </select>
+                <div className="grid grid-cols-2 gap-4">
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.tipoInterno || ''} onChange={e => setFormData({...formData, tipoInterno: e.target.value})}>
+                    <option value="">Tipo de Movimentação</option>
+                    <option value="Produção">Para Produção</option>
+                    <option value="Transferência">Para Outro Galpão</option>
+                  </select>
+                  <input type="number" placeholder="Quantidade" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.quantidade || ''} onChange={e => setFormData({...formData, quantidade: e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <input type="number" step="0.001" placeholder="Peso Total (kg)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.peso || ''} onChange={e => setFormData({...formData, peso: e.target.value})} />
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.responsavel || ''} onChange={e => setFormData({...formData, responsavel: e.target.value})}>
+                    <option value="">Selecione o Responsável</option>
+                    {funcionarios.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+                  </select>
+                </div>
+                <input placeholder={formData.tipoInterno === 'Transferência' ? "Galpão de Destino" : "Destino / Observação"} className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.destino || ''} onChange={e => setFormData({...formData, destino: e.target.value})} />
+              </>
+            )}
           </Modal>
         )}
       </main>
@@ -1125,31 +1285,36 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, badge = null }) => (
   </button>
 );
 
-const Dashboard = ({ produtos, movimentacoes }) => {
+const Dashboard = ({ produtos, movimentacoes, movimentacoesInternas }) => {
   const totalEstoqueQtd = produtos.reduce((acc, p) => acc + p.estoque, 0);
   const totalEstoqueValor = produtos.reduce((acc, p) => acc + (p.estoque * (p.valorUnit || 0)), 0);
   
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   
-  const movimentosMes = movimentacoes.filter(m => {
-    // Expected format: "DD/MM/YYYY, HH:MM:SS" or "YYYY-MM-DD"
+  const filterByMonth = (m) => {
     try {
       const datePart = m.data.split(',')[0].trim();
       const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
-      // Handle both DD/MM/YYYY and YYYY-MM-DD
       const mMonth = datePart.includes('/') ? parseInt(mes) - 1 : parseInt(mes) - 1;
       const mYear = datePart.includes('/') ? parseInt(ano) : parseInt(dia);
       return mMonth === currentMonth && mYear === currentYear;
-    } catch (e) {
-      return false;
-    }
-  });
+    } catch (e) { return false; }
+  };
+
+  const movimentosMes = movimentacoes.filter(filterByMonth);
+  const movimentosInternosMes = movimentacoesInternas.filter(filterByMonth);
 
   const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
   const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (m.valorTotal || 0), 0);
-  const saidasMesQtd = movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0);
-  const saidasMesVal = movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0);
+  
+  const saidasMesQtd = 
+    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0) + 
+    movimentosInternosMes.reduce((acc, m) => acc + m.qtd, 0);
+    
+  const saidasMesVal = 
+    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0) +
+    movimentosInternosMes.reduce((acc, m) => acc + (m.valorTotal || 0), 0);
 
   // Process data for charts (last 6 months)
   const chartData = Array.from({ length: 6 }).map((_, i) => {
@@ -1159,7 +1324,7 @@ const Dashboard = ({ produtos, movimentacoes }) => {
     const mIndex = d.getMonth();
     const yIndex = d.getFullYear();
 
-    const monthMovs = movimentacoes.filter(m => {
+    const filterBySpecificMonth = (m) => {
       try {
         const datePart = m.data.split(',')[0].trim();
         const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
@@ -1167,14 +1332,17 @@ const Dashboard = ({ produtos, movimentacoes }) => {
         const mYear = datePart.includes('/') ? parseInt(ano) : parseInt(dia);
         return mMonth === mIndex && mYear === yIndex;
       } catch (e) { return false; }
-    });
+    };
+
+    const monthMovs = movimentacoes.filter(filterBySpecificMonth);
+    const monthMovsInt = movimentacoesInternas.filter(filterBySpecificMonth);
 
     return {
       name: monthName,
       entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0),
-      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0),
+      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0) + monthMovsInt.reduce((acc, m) => acc + m.qtd, 0),
       entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (m.valorTotal || 0), 0),
-      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0),
+      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (m.valorTotal || 0), 0),
     };
   });
 
