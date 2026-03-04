@@ -203,12 +203,12 @@ export default function App() {
   const [movimentacoesInternas, setMovimentacoesInternas] = useState([]);
 
   // Helper para fetch com credenciais e tratamento de erro global
-  const apiFetch = async (url, options = {}) => {
-    const defaultOptions = {
+  const apiFetch = async (url: string, options: RequestInit = {}) => {
+    const defaultOptions: RequestInit = {
       credentials: 'include',
       ...options,
       headers: {
-        ...options.headers,
+        ...(options.headers || {}),
       },
     };
 
@@ -218,7 +218,7 @@ export default function App() {
       if (isLoggedIn) {
         setIsLoggedIn(false);
         setCurrentUser(null);
-        alert('Sessão expirada. Por favor, faça login novamente.');
+        // alert('Sessão expirada. Por favor, faça login novamente.');
       }
       return response;
     }
