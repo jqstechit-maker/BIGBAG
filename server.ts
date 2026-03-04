@@ -395,16 +395,35 @@ async function initializeDatabase() {
           codigo VARCHAR(255) UNIQUE NOT NULL,
           descricao TEXT NOT NULL,
           tipo VARCHAR(255),
-          fornecedorId INT,
-          galpaoId INT,
+          fornecedorid INT,
+          galpaoid INT,
           estoque INT DEFAULT 0,
           min INT DEFAULT 0,
-          pesoUnit DECIMAL(10,3) DEFAULT 0,
-          valorUnit DECIMAL(10,3) DEFAULT 0,
-          FOREIGN KEY(fornecedorId) REFERENCES fornecedores(id),
-          FOREIGN KEY(galpaoId) REFERENCES galpoes(id)
+          pesounit DECIMAL(10,3) DEFAULT 0,
+          valorunit DECIMAL(10,3) DEFAULT 0,
+          FOREIGN KEY(fornecedorid) REFERENCES fornecedores(id),
+          FOREIGN KEY(galpaoid) REFERENCES galpoes(id)
         )
       `);
+
+      // Migração: Garantir que colunas novas existam em bancos já criados
+      const migracoes = [
+        { tabela: 'produtos', coluna: 'tipo', tipo: 'VARCHAR(255) AFTER descricao' },
+        { tabela: 'produtos', coluna: 'fornecedorid', tipo: 'INT AFTER tipo' },
+        { tabela: 'produtos', coluna: 'galpaoid', tipo: 'INT AFTER fornecedorid' },
+        { tabela: 'produtos', coluna: 'pesounit', tipo: 'DECIMAL(10,3) DEFAULT 0 AFTER min' },
+        { tabela: 'produtos', coluna: 'valorunit', tipo: 'DECIMAL(10,3) DEFAULT 0 AFTER pesounit' },
+        { tabela: 'movimentacoes', coluna: 'produtoid', tipo: 'INT AFTER valortotal' },
+        { tabela: 'movimentacoes_internas', coluna: 'produtoid', tipo: 'INT AFTER valortotal' }
+      ];
+
+      for (const m of migracoes) {
+        try {
+          await dbQuery(`ALTER TABLE ${m.tabela} ADD COLUMN ${m.coluna} ${m.tipo}`);
+        } catch (e) {
+          // Coluna já existe ou outro erro ignorável
+        }
+      }
 
       // Movimentacoes
       await dbQuery(`
@@ -419,10 +438,10 @@ async function initializeDatabase() {
           peso DECIMAL(10,3),
           nf VARCHAR(255),
           responsavel VARCHAR(255),
-          valorUnit DECIMAL(10,3),
-          valorTotal DECIMAL(10,3),
-          produtoId INT,
-          FOREIGN KEY(produtoId) REFERENCES produtos(id) ON DELETE SET NULL
+          valorunit DECIMAL(10,3),
+          valortotal DECIMAL(10,3),
+          produtoid INT,
+          FOREIGN KEY(produtoid) REFERENCES produtos(id) ON DELETE SET NULL
         )
       `);
 
@@ -438,10 +457,10 @@ async function initializeDatabase() {
           peso DECIMAL(10,3),
           responsavel VARCHAR(255),
           destino VARCHAR(255),
-          valorUnit DECIMAL(10,3),
-          valorTotal DECIMAL(10,3),
-          produtoId INT,
-          FOREIGN KEY(produtoId) REFERENCES produtos(id) ON DELETE SET NULL
+          valorunit DECIMAL(10,3),
+          valortotal DECIMAL(10,3),
+          produtoid INT,
+          FOREIGN KEY(produtoid) REFERENCES produtos(id) ON DELETE SET NULL
         )
       `);
 
@@ -573,7 +592,7 @@ async function startServer() {
 
   app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    const [rows] = await dbQuery('SELECT * FROM usuario WHERE nome = ? AND senha = ?', [username, password]) as any[];
+    const [rows] = await dbQuery('SELECT id, nome, email, nivel_acesso FROM usuario WHERE nome = ? AND senha = ?', [username, password]) as any[];
     if (rows && rows.length > 0) {
       const user = rows[0];
       
@@ -682,7 +701,7 @@ async function startServer() {
     const { qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId } = req.body;
     
     if (isMockMode) {
-      const [oldMovs] = await dbQuery('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      const [oldMovs] = await dbQuery('SELECT id, tipo, qtd, produtoid as "produtoId" FROM movimentacoes WHERE id = ?', [id]) as any[];
       if (!oldMovs || oldMovs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
       const oldMov = oldMovs[0];
       const revertAdjust = oldMov.tipo === 'entrada' ? -oldMov.qtd : oldMov.qtd;
@@ -697,7 +716,7 @@ async function startServer() {
     try {
       await connection.beginTransaction();
       
-      const [oldMovs] = await connection.query('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      const [oldMovs] = await connection.query('SELECT id, tipo, qtd, produtoid as "produtoId" FROM movimentacoes WHERE id = ?', [id]) as any[];
       if (oldMovs.length === 0) throw new Error('Movimentação não encontrada');
       const oldMov = oldMovs[0];
 
@@ -726,7 +745,7 @@ async function startServer() {
     const { id } = req.params;
     
     if (isMockMode) {
-      const [movs] = await dbQuery('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      const [movs] = await dbQuery('SELECT id, tipo, qtd, produtoid as "produtoId" FROM movimentacoes WHERE id = ?', [id]) as any[];
       if (!movs || movs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
       const mov = movs[0];
       const adjust = mov.tipo === 'entrada' ? -mov.qtd : mov.qtd;
@@ -739,7 +758,7 @@ async function startServer() {
     try {
       await connection.beginTransaction();
       
-      const [movs] = await connection.query('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      const [movs] = await connection.query('SELECT id, tipo, qtd, produtoid as "produtoId" FROM movimentacoes WHERE id = ?', [id]) as any[];
       if (movs.length === 0) throw new Error('Movimentação não encontrada');
       const mov = movs[0];
 
@@ -762,7 +781,7 @@ async function startServer() {
 
   // Movimentações Internas
   app.get('/api/movimentacoes_internas', async (req, res) => {
-    const [rows] = await dbQuery('SELECT * FROM movimentacoes_internas ORDER BY id DESC LIMIT 100');
+    const [rows] = await dbQuery('SELECT id, data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorunit as "valorUnit", valortotal as "valorTotal", produtoid as "produtoId" FROM movimentacoes_internas ORDER BY id DESC LIMIT 100');
     res.json(rows);
   });
 
@@ -771,7 +790,7 @@ async function startServer() {
     
     if (isMockMode) {
       await dbQuery(
-        'INSERT INTO movimentacoes_internas (data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO movimentacoes_internas (data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorunit, valortotal, produtoid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId]
       );
       await dbQuery('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
@@ -782,7 +801,7 @@ async function startServer() {
     try {
       await connection.beginTransaction();
       await connection.query(
-        'INSERT INTO movimentacoes_internas (data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO movimentacoes_internas (data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorunit, valortotal, produtoid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId]
       );
       
@@ -803,12 +822,12 @@ async function startServer() {
     const { qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId } = req.body;
     
     if (isMockMode) {
-      const [oldMovs] = await dbQuery('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      const [oldMovs] = await dbQuery('SELECT id, qtd, produtoid as "produtoId" FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
       if (!oldMovs || oldMovs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
       const oldMov = oldMovs[0];
       if (oldMov.produtoId) await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [oldMov.qtd, oldMov.produtoId]);
       await dbQuery('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
-      await dbQuery('UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorUnit = ?, valorTotal = ?, produtoId = ? WHERE id = ?', [qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId, id]);
+      await dbQuery('UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorunit = ?, valortotal = ?, produtoid = ? WHERE id = ?', [qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId, id]);
       return res.json({ success: true });
     }
 
@@ -816,7 +835,7 @@ async function startServer() {
     try {
       await connection.beginTransaction();
       
-      const [oldMovs] = await connection.query('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      const [oldMovs] = await connection.query('SELECT id, qtd, produtoid as "produtoId" FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
       if (oldMovs.length === 0) throw new Error('Movimentação não encontrada');
       const oldMov = oldMovs[0];
 
@@ -827,7 +846,7 @@ async function startServer() {
       await connection.query('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
 
       await connection.query(
-        'UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorUnit = ?, valorTotal = ?, produtoId = ? WHERE id = ?',
+        'UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorunit = ?, valortotal = ?, produtoid = ? WHERE id = ?',
         [qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId, id]
       );
 
@@ -845,7 +864,7 @@ async function startServer() {
     const { id } = req.params;
     
     if (isMockMode) {
-      const [movs] = await dbQuery('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      const [movs] = await dbQuery('SELECT id, qtd, produtoid as "produtoId" FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
       if (!movs || movs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
       const mov = movs[0];
       if (mov.produtoId) await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [mov.qtd, mov.produtoId]);
@@ -857,7 +876,7 @@ async function startServer() {
     try {
       await connection.beginTransaction();
       
-      const [movs] = await connection.query('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      const [movs] = await connection.query('SELECT id, qtd, produtoid as "produtoId" FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
       if (movs.length === 0) throw new Error('Movimentação não encontrada');
       const mov = movs[0];
 
@@ -880,7 +899,7 @@ async function startServer() {
   // Generic CRUD for Fornecedores, Funcionarios, Galpoes
   const createCrudRoutes = (tableName, columns) => {
     app.get(`/api/${tableName}`, async (req, res) => {
-      const [rows] = await dbQuery(`SELECT * FROM ${tableName}`);
+      const [rows] = await dbQuery(`SELECT id, ${columns.join(', ')} FROM ${tableName}`);
       res.json(rows);
     });
     app.post(`/api/${tableName}`, checkAccess(['admin']), async (req, res) => {
