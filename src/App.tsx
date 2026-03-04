@@ -202,11 +202,35 @@ export default function App() {
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [movimentacoesInternas, setMovimentacoesInternas] = useState([]);
 
+  // Helper para fetch com credenciais e tratamento de erro global
+  const apiFetch = async (url, options = {}) => {
+    const defaultOptions = {
+      credentials: 'include',
+      ...options,
+      headers: {
+        ...options.headers,
+      },
+    };
+
+    const response = await fetch(url, defaultOptions);
+    
+    if (response.status === 401) {
+      if (isLoggedIn) {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+        alert('Sessão expirada. Por favor, faça login novamente.');
+      }
+      return response;
+    }
+    
+    return response;
+  };
+
   // Fetch Data on Load
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await fetch('/api/me');
+        const res = await apiFetch('/api/me');
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
@@ -227,12 +251,12 @@ export default function App() {
   const fetchData = async () => {
     try {
       const [prodRes, fornRes, galpRes, funcRes, movRes, movIntRes] = await Promise.all([
-        fetch('/api/produtos'),
-        fetch('/api/fornecedores'),
-        fetch('/api/galpoes'),
-        fetch('/api/funcionarios'),
-        fetch('/api/movimentacoes'),
-        fetch('/api/movimentacoes_internas')
+        apiFetch('/api/produtos'),
+        apiFetch('/api/fornecedores'),
+        apiFetch('/api/galpoes'),
+        apiFetch('/api/funcionarios'),
+        apiFetch('/api/movimentacoes'),
+        apiFetch('/api/movimentacoes_internas')
       ]);
 
       const p = await prodRes.json();
@@ -269,7 +293,7 @@ export default function App() {
 
   const handleLogin = async (username, password) => {
     try {
-      const res = await fetch('/api/login', {
+      const res = await apiFetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -288,7 +312,7 @@ export default function App() {
         setIsLoggedIn(true);
       }
     } catch (err) {
-      alert('Erro de conexão com o servidor. Verifique se o backend está rodando.');
+      alert('Erro de conexão com o servidor. Verifique se o banco de dados local está rodando.');
     }
   };
 
@@ -416,7 +440,7 @@ export default function App() {
           valorUnit: parseFloat(formData.valorUnit) || 0
         };
 
-        response = await fetch(url, {
+        response = await apiFetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(productData)
@@ -442,7 +466,7 @@ export default function App() {
           cleanData.nivel = formData.nivel; // Ensure it's there if needed
         }
 
-        response = await fetch(url, {
+        response = await apiFetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanData)
@@ -484,7 +508,7 @@ export default function App() {
           produtoId: prod.id
         };
 
-        response = await fetch(url, {
+        response = await apiFetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(movementData)
@@ -517,7 +541,7 @@ export default function App() {
           produtoId: prod.id
         };
 
-        response = await fetch(url, {
+        response = await apiFetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(internalData)
@@ -551,7 +575,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch(url, { method: 'DELETE' });
+      const res = await apiFetch(url, { method: 'DELETE' });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || errorData.error || 'Erro ao excluir');

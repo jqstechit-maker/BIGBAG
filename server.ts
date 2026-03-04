@@ -9,8 +9,8 @@ import session from 'express-session';
 
 dotenv.config();
 
-// Verificação de variáveis de ambiente obrigatórias
-const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'DB_PORT'];
+// Verificação de variáveis de ambiente obrigatórias para MySQL (XAMPP)
+const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_NAME'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
@@ -71,65 +71,65 @@ const mockData: any = {
 };
 
 function createMockPool() {
-  const queryHandler = async (sql: string, params: any[] = []) => {
-    const lowerSql = sql.toLowerCase();
+  const queryHandler = async (sqlStr: string, params: any[] = []) => {
+    const lowerSql = sqlStr.toLowerCase();
     
     // SELECT USUARIO
     if (lowerSql.includes('from usuario')) {
       if (lowerSql.includes('nome = ? and senha = ?')) {
         const user = mockData.usuario.find((u: any) => u.nome === params[0] && u.senha === params[1]);
-        return [user ? [user] : []];
+        return user ? [user] : [];
       }
       if (lowerSql.includes('where nome = ?')) {
         const user = mockData.usuario.find((u: any) => u.nome === params[0]);
-        return [user ? [user] : []];
+        return user ? [user] : [];
       }
       if (lowerSql.includes('where id = ?')) {
         const user = mockData.usuario.find((u: any) => u.id === Number(params[0]));
-        return [user ? [user] : []];
+        return user ? [user] : [];
       }
-      return [mockData.usuario];
+      return mockData.usuario;
     }
 
     // SELECT OTHERS
     if (lowerSql.includes('from produtos')) {
       if (lowerSql.includes('where id = ?')) {
         const item = mockData.produtos.find((p: any) => p.id === Number(params[0]));
-        return [item ? [item] : []];
+        return item ? [item] : [];
       }
-      return [mockData.produtos];
+      return mockData.produtos;
     }
     if (lowerSql.includes('from fornecedores')) {
       if (lowerSql.includes('where id = ?')) {
         const item = mockData.fornecedores.find((f: any) => f.id === Number(params[0]));
-        return [item ? [item] : []];
+        return item ? [item] : [];
       }
-      return [mockData.fornecedores];
+      return mockData.fornecedores;
     }
     if (lowerSql.includes('from galpoes')) {
       if (lowerSql.includes('where id = ?')) {
         const item = mockData.galpoes.find((g: any) => g.id === Number(params[0]));
-        return [item ? [item] : []];
+        return item ? [item] : [];
       }
-      return [mockData.galpoes];
+      return mockData.galpoes;
     }
     if (lowerSql.includes('from movimentacoes')) {
       if (lowerSql.includes('where id = ?')) {
         const item = mockData.movimentacoes.find((m: any) => m.id === Number(params[0]));
-        return [item ? [item] : []];
+        return item ? [item] : [];
       }
       const sorted = [...mockData.movimentacoes].sort((a, b) => b.id - a.id);
-      return [sorted];
+      return sorted;
     }
 
     if (lowerSql.includes('from movimentacoes_internas')) {
       if (!mockData.movimentacoes_internas) mockData.movimentacoes_internas = [];
       if (lowerSql.includes('where id = ?')) {
         const item = mockData.movimentacoes_internas.find((m: any) => m.id === Number(params[0]));
-        return [item ? [item] : []];
+        return item ? [item] : [];
       }
       const sorted = [...mockData.movimentacoes_internas].sort((a, b) => b.id - a.id);
-      return [sorted.slice(0, 100)];
+      return sorted.slice(0, 100);
     }
 
     // INSERT USUARIO
@@ -144,7 +144,7 @@ function createMockPool() {
         nivel_acesso: params[5] 
       };
       mockData.usuario.push(newUser);
-      return [{ insertId: newUser.id }];
+      return { insertId: newUser.id };
     }
 
     // INSERT PRODUTOS
@@ -162,21 +162,21 @@ function createMockPool() {
         valorUnit: Number(params[7]) 
       };
       mockData.produtos.push(newProd);
-      return [{ insertId: newProd.id }];
+      return { insertId: newProd.id };
     }
 
     // INSERT FORNECEDORES
     if (lowerSql.includes('insert into fornecedores')) {
       const newItem = { id: mockData.fornecedores.length + 1, nome: params[0], telefone: params[1], email: params[2] };
       mockData.fornecedores.push(newItem);
-      return [{ insertId: newItem.id }];
+      return { insertId: newItem.id };
     }
 
     // INSERT GALPOES
     if (lowerSql.includes('insert into galpoes')) {
       const newItem = { id: mockData.galpoes.length + 1, nome: params[0], descricao: params[1] };
       mockData.galpoes.push(newItem);
-      return [{ insertId: newItem.id }];
+      return { insertId: newItem.id };
     }
 
     // INSERT MOVIMENTACOES
@@ -189,7 +189,7 @@ function createMockPool() {
         produtoId: Number(params[11])
       };
       mockData.movimentacoes.push(newItem);
-      return [{ insertId: newItem.id }];
+      return { insertId: newItem.id };
     }
 
     // INSERT MOVIMENTACOES INTERNAS
@@ -203,7 +203,7 @@ function createMockPool() {
         produtoId: Number(params[10])
       };
       mockData.movimentacoes_internas.push(newItem);
-      return [{ insertId: newItem.id }];
+      return { insertId: newItem.id };
     }
 
     // UPDATE PRODUTOS ESTOQUE
@@ -212,7 +212,7 @@ function createMockPool() {
       const id = Number(params[1]);
       const prod = mockData.produtos.find((p: any) => p.id === id);
       if (prod) prod.estoque += adjust;
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
 
     // UPDATE PRODUTOS FULL
@@ -232,7 +232,7 @@ function createMockPool() {
           valorUnit: Number(params[7]) 
         };
       }
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
 
     // UPDATE USUARIO
@@ -246,7 +246,7 @@ function createMockPool() {
           mockData.usuario[index] = { ...mockData.usuario[index], nome: params[0], registro: params[1], funcao: params[2], nivel_acesso: params[3] };
         }
       }
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
 
     // UPDATE MOVIMENTACOES
@@ -264,7 +264,7 @@ function createMockPool() {
           valorTotal: Number(params[5]) 
         };
       }
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
 
     // GENERIC UPDATE
@@ -272,13 +272,13 @@ function createMockPool() {
       const id = Number(params[params.length - 1]);
       const index = mockData.fornecedores.findIndex((f: any) => f.id === id);
       if (index !== -1) mockData.fornecedores[index] = { ...mockData.fornecedores[index], nome: params[0], telefone: params[1], email: params[2] };
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
     if (lowerSql.includes('update galpoes')) {
       const id = Number(params[params.length - 1]);
       const index = mockData.galpoes.findIndex((g: any) => g.id === id);
       if (index !== -1) mockData.galpoes[index] = { ...mockData.galpoes[index], nome: params[0], descricao: params[1] };
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
 
     // DELETE
@@ -293,71 +293,90 @@ function createMockPool() {
         if (!mockData.movimentacoes_internas) mockData.movimentacoes_internas = [];
         mockData.movimentacoes_internas = mockData.movimentacoes_internas.filter((m: any) => m.id !== id);
       }
-      return [{ affectedRows: 1 }];
+      return { affectedRows: 1 };
     }
 
-    return [[]];
+    return [];
   };
 
   return {
     query: queryHandler,
     getConnection: async () => ({
-      query: queryHandler,
       beginTransaction: async () => {},
       commit: async () => {},
       rollback: async () => {},
-      release: () => {}
+      release: () => {},
+      query: queryHandler
     })
   };
 }
 
-try {
-  pool = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: Number(process.env.DB_PORT) || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
-  });
-} catch (err) {
-  console.log('Iniciando em MODO DE TESTE (Banco de dados em memória)');
-  isMockMode = true;
-  pool = createMockPool();
+// MySQL Connection Config (XAMPP)
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'VirtudeEstoque',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
+
+async function dbQuery(sqlStr: string, params: any[] = []) {
+  if (isMockMode) {
+    const result = await (pool as any).query(sqlStr, params);
+    return [result];
+  }
+  const [rows] = await pool.query(sqlStr, params);
+  return [rows];
 }
 
 async function initializeDatabase() {
-  console.log('--- DATABASE INITIALIZATION START ---');
-  if (isMockMode) {
-    console.log('Database initialization skipped in Mock Mode.');
-    console.log('--- DATABASE INITIALIZATION END (MOCK) ---');
-    return;
-  }
-
+  console.log('--- INICIANDO CONEXÃO COM O BANCO DE DADOS ---');
+  
   try {
-    console.log('Connecting to MySQL pool...');
+    // 1. Tentar conectar sem especificar o banco de dados primeiro
+    const configSemBanco = { ...dbConfig, database: undefined };
+    const tempPool = mysql.createPool(configSemBanco);
+    
+    console.log(`Tentando conectar ao MySQL em ${dbConfig.host}...`);
+    await tempPool.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+    await tempPool.end();
+    
+    console.log(`Banco de dados "${dbConfig.database}" verificado/criado.`);
+
+    // 2. Agora conectar ao banco de dados real
+    pool = mysql.createPool(dbConfig);
+    
+    // Testar conexão
     const connection = await pool.getConnection();
-    console.log('MySQL connection established.');
+    console.log('✅ Conexão com MySQL estabelecida com sucesso!');
+    connection.release();
+    
     try {
-      console.log('Creating tables if they do not exist...');
-      await connection.query(`
+      console.log('Verificando tabelas...');
+      
+      // Fornecedores
+      await dbQuery(`
         CREATE TABLE IF NOT EXISTS fornecedores (
           id INT AUTO_INCREMENT PRIMARY KEY,
           nome VARCHAR(255) NOT NULL,
           telefone VARCHAR(255),
           email VARCHAR(255)
-        );
+        )
       `);
-      await connection.query(`
+
+      // Galpoes
+      await dbQuery(`
         CREATE TABLE IF NOT EXISTS galpoes (
           id INT AUTO_INCREMENT PRIMARY KEY,
           nome VARCHAR(255) NOT NULL,
           descricao TEXT
-        );
+        )
       `);
-      await connection.query(`
+
+      // Usuario
+      await dbQuery(`
         CREATE TABLE IF NOT EXISTS usuario (
           id INT AUTO_INCREMENT PRIMARY KEY,
           nome VARCHAR(255) UNIQUE NOT NULL,
@@ -366,9 +385,11 @@ async function initializeDatabase() {
           registro VARCHAR(255),
           funcao VARCHAR(255),
           nivel_acesso ENUM('super_admin', 'admin', 'funcionario') NOT NULL
-        );
+        )
       `);
-      await connection.query(`
+
+      // Produtos
+      await dbQuery(`
         CREATE TABLE IF NOT EXISTS produtos (
           id INT AUTO_INCREMENT PRIMARY KEY,
           codigo VARCHAR(255) UNIQUE NOT NULL,
@@ -378,13 +399,15 @@ async function initializeDatabase() {
           galpaoId INT,
           estoque INT DEFAULT 0,
           min INT DEFAULT 0,
-          pesoUnit DECIMAL(10, 3) DEFAULT 0,
-          valorUnit DECIMAL(10, 3) DEFAULT 0,
+          pesoUnit DECIMAL(10,3) DEFAULT 0,
+          valorUnit DECIMAL(10,3) DEFAULT 0,
           FOREIGN KEY(fornecedorId) REFERENCES fornecedores(id),
           FOREIGN KEY(galpaoId) REFERENCES galpoes(id)
-        );
+        )
       `);
-      await connection.query(`
+
+      // Movimentacoes
+      await dbQuery(`
         CREATE TABLE IF NOT EXISTS movimentacoes (
           id INT AUTO_INCREMENT PRIMARY KEY,
           data VARCHAR(255) NOT NULL,
@@ -393,17 +416,18 @@ async function initializeDatabase() {
           fornecedor VARCHAR(255),
           tipo ENUM('entrada', 'saida') NOT NULL,
           qtd INT NOT NULL,
-          peso DECIMAL(10, 3),
+          peso DECIMAL(10,3),
           nf VARCHAR(255),
           responsavel VARCHAR(255),
-          valorUnit DECIMAL(10, 3),
-          valorTotal DECIMAL(10, 3),
+          valorUnit DECIMAL(10,3),
+          valorTotal DECIMAL(10,3),
           produtoId INT,
           FOREIGN KEY(produtoId) REFERENCES produtos(id) ON DELETE SET NULL
-        );
+        )
       `);
 
-      await connection.query(`
+      // Movimentacoes Internas
+      await dbQuery(`
         CREATE TABLE IF NOT EXISTS movimentacoes_internas (
           id INT AUTO_INCREMENT PRIMARY KEY,
           data VARCHAR(255) NOT NULL,
@@ -411,63 +435,48 @@ async function initializeDatabase() {
           produto TEXT NOT NULL,
           tipo VARCHAR(100) NOT NULL,
           qtd INT NOT NULL,
-          peso DECIMAL(10, 3),
+          peso DECIMAL(10,3),
           responsavel VARCHAR(255),
           destino VARCHAR(255),
-          valorUnit DECIMAL(10, 3),
-          valorTotal DECIMAL(10, 3),
+          valorUnit DECIMAL(10,3),
+          valorTotal DECIMAL(10,3),
           produtoId INT,
           FOREIGN KEY(produtoId) REFERENCES produtos(id) ON DELETE SET NULL
-        );
+        )
       `);
 
-      console.log('Checking for default admin user...');
-      // Insert default admin if not exists
-      const [rows] = await connection.query('SELECT id FROM usuario WHERE nome = ?', ['admin']) as any[];
+      console.log('Verificando usuário admin padrão...');
+      const [rows]: any = await dbQuery('SELECT id FROM usuario WHERE nome = ?', ['admin']);
       if (rows.length === 0) {
-        console.log('Default admin user not found. Creating initial data...');
+        console.log('Criando dados iniciais (admin)...');
         
-        // Users
-        await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
+        await dbQuery('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
           ['admin', 'admin@admin', 'admin', '000', 'Admin', 'admin']);
-        await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
-          ['João Silva', 'joao@virtude.com', '123', '001', 'Auxiliar de Produção', 'funcionario']);
-        await connection.query('INSERT INTO usuario (nome, email, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?, ?)', 
-          ['Maria Santos', 'maria@virtude.com', '123', '002', 'Gerente de Logística', 'admin']);
         
-        // Warehouses
-        await connection.query('INSERT INTO galpoes (nome, descricao) VALUES (?, ?)', ['Galpão Norte', 'Armazenamento Principal']);
-        await connection.query('INSERT INTO galpoes (nome, descricao) VALUES (?, ?)', ['Galpão Sul', 'Armazenamento Secundário']);
+        await dbQuery('INSERT INTO galpoes (nome, descricao) VALUES (?, ?)', ['Galpão Norte', 'Armazenamento Principal']);
+        await dbQuery('INSERT INTO galpoes (nome, descricao) VALUES (?, ?)', ['Galpão Sul', 'Armazenamento Secundário']);
 
-        // Suppliers
-        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Alfa', '(11) 1111-1111', 'alfa@forn.com']);
-        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Beta', '(22) 2222-2222', 'beta@forn.com']);
-        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Gama', '(33) 3333-3333', 'gama@forn.com']);
-        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Delta', '(44) 4444-4444', 'delta@forn.com']);
-        await connection.query('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Epsilon', '(55) 5555-5555', 'epsilon@forn.com']);
-
-        // Products
-        await connection.query('INSERT INTO produtos (codigo, descricao, tipo, fornecedorId, galpaoId, estoque, min, pesoUnit, valorUnit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-          ['VT-001', 'Tecido', 'Fardo', 1, 1, 50, 10, 2.0, 50.0]);
-        await connection.query('INSERT INTO produtos (codigo, descricao, tipo, fornecedorId, galpaoId, estoque, min, pesoUnit, valorUnit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-          ['VL-001', 'Linner', 'Fardo', 2, 1, 50, 10, 2.0, 60.0]);
-        await connection.query('INSERT INTO produtos (codigo, descricao, tipo, fornecedorId, galpaoId, estoque, min, pesoUnit, valorUnit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-          ['VA-001', 'Alça', 'Fardo', 3, 2, 50, 10, 2.0, 70.0]);
-
-        console.log('Initial data created successfully.');
-      } else {
-        console.log('Default admin user already exists.');
+        await dbQuery('INSERT INTO fornecedores (nome, telefone, email) VALUES (?, ?, ?)', ['Fornecedor Alfa', '(11) 1111-1111', 'alfa@forn.com']);
+        
+        console.log('Dados iniciais criados com sucesso.');
       }
-      console.log('--- DATABASE INITIALIZATION END (SUCCESS) ---');
-    } finally {
-      connection.release();
+      console.log('--- BANCO DE DADOS PRONTO ---');
+    } catch (err) {
+      console.error('Erro ao criar tabelas:', err.message);
+      throw err;
     }
   } catch (err) {
-    console.error('DATABASE INITIALIZATION ERROR:', err.message);
-    console.log('Falha ao conectar ao MySQL. Ativando MODO DE TESTE.');
+    console.error('❌ ERRO DE CONEXÃO COM O BANCO DE DADOS:', err.message);
+    console.log('---------------------------------------------------------');
+    console.log('⚠️ ATENÇÃO: O sistema não conseguiu conectar ao seu MySQL.');
+    console.log('⚠️ MOTIVO: ' + err.message);
+    console.log('⚠️ Verifique se o MySQL do XAMPP está LIGADO.');
+    console.log('⚠️ Verifique se o usuário/senha no arquivo .env estão corretos.');
+    console.log('---------------------------------------------------------');
+    console.log('🔄 Ativando MODO DE TESTE (Dados serão salvos apenas na memória).');
     isMockMode = true;
     pool = createMockPool();
-    console.log('--- DATABASE INITIALIZATION END (FALLBACK TO MOCK) ---');
+    console.log('--- SISTEMA INICIADO EM MODO DE TESTE ---');
   }
 }
 
@@ -482,21 +491,30 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(cors());
+  // Necessário para que o cookie funcione atrás de proxies (como o do AI Studio)
+  app.set('trust proxy', 1);
+
+  app.use(cors({
+    origin: true,
+    credentials: true
+  }));
   app.use(express.json());
   
   // Session configuration
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isLocalhost = !process.env.APP_URL || process.env.APP_URL.includes('localhost');
+
   app.use(session({
     secret: process.env.SESSION_SECRET || 'virtude-secret-key-2026',
-    resave: false,
-    saveUninitialized: false,
+    resave: true,
+    saveUninitialized: true,
     name: 'virtude_session',
-    proxy: true,
     cookie: {
-      // For AI Studio Preview, we need SameSite=None and Secure=True
-      secure: true, 
+      // Se for localhost, secure deve ser false. Se for no preview, deve ser true.
+      secure: !isLocalhost || isProduction, 
       httpOnly: true,
-      sameSite: 'none',
+      // sameSite 'none' exige secure: true. Para localhost, usamos 'lax'.
+      sameSite: (!isLocalhost || isProduction) ? 'none' : 'lax',
       maxAge: 1000 * 60 * 60 * 24 // 24 hours
     }
   }));
@@ -517,7 +535,7 @@ async function startServer() {
     };
   };
 
-  // Health check for Hostinger
+  // Health check
   app.get('/api/health', (req, res) => {
     res.json({ 
       status: 'ok', 
@@ -530,9 +548,9 @@ async function startServer() {
   app.get('/api/me', (req, res) => {
     if (req.session && req.session.user_id) {
       // Find user in pool or mock
-      pool.query('SELECT id, nome, email, nivel_acesso FROM usuario WHERE id = ?', [req.session.user_id])
+      dbQuery('SELECT id, nome, email, nivel_acesso FROM usuario WHERE id = ?', [req.session.user_id])
         .then(([rows]: any) => {
-          if (rows.length > 0) {
+          if (rows && rows.length > 0) {
             const user = rows[0];
             res.json({ 
               success: true, 
@@ -555,8 +573,8 @@ async function startServer() {
 
   app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    const [rows] = await pool.query('SELECT * FROM usuario WHERE nome = ? AND senha = ?', [username, password]) as any[];
-    if (rows.length > 0) {
+    const [rows] = await dbQuery('SELECT * FROM usuario WHERE nome = ? AND senha = ?', [username, password]) as any[];
+    if (rows && rows.length > 0) {
       const user = rows[0];
       
       // Save to session
@@ -569,7 +587,7 @@ async function startServer() {
           id: user.id, 
           nome: user.nome, 
           email: user.email, 
-          nivel: user.nivel_acesso // Keep 'nivel' for frontend compatibility
+          nivel: user.nivel_acesso 
         } 
       });
     } else {
@@ -577,24 +595,26 @@ async function startServer() {
     }
   });
 
-  // Logout
   app.post('/api/logout', (req, res) => {
     req.session.destroy((err) => {
-      if (err) return res.status(500).json({ success: false });
+      if (err) {
+        return res.status(500).json({ success: false });
+      }
+      res.clearCookie('virtude_session');
       res.json({ success: true });
     });
   });
 
   // Produtos
   app.get('/api/produtos', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, codigo, descricao, tipo, fornecedorid as "fornecedorId", galpaoid as "galpaoId", estoque, min, pesounit as "pesoUnit", valorunit as "valorUnit" FROM produtos');
+    const [rows] = await dbQuery('SELECT id, codigo, descricao, tipo, fornecedorid as "fornecedorId", galpaoid as "galpaoId", estoque, min, pesounit as "pesoUnit", valorunit as "valorUnit" FROM produtos');
     res.json(rows);
   });
 
   app.post('/api/produtos', checkAccess(['admin']), async (req, res) => {
     const { codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit } = req.body;
     try {
-      const [result] = await pool.query(
+      const [result] = await dbQuery(
         'INSERT INTO produtos (codigo, descricao, tipo, fornecedorid, galpaoid, min, pesounit, valorunit) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit]
       ) as any[];
@@ -607,7 +627,7 @@ async function startServer() {
   app.put('/api/produtos/:id', checkAccess(['admin']), async (req, res) => {
     const { id } = req.params;
     const { codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit } = req.body;
-    await pool.query(
+    await dbQuery(
       'UPDATE produtos SET codigo = ?, descricao = ?, tipo = ?, fornecedorid = ?, galpaoid = ?, min = ?, pesounit = ?, valorunit = ? WHERE id = ?',
       [codigo, descricao, tipo, fornecedorId, galpaoId, min, pesoUnit, valorUnit, id]
     );
@@ -615,18 +635,29 @@ async function startServer() {
   });
 
   app.delete('/api/produtos/:id', checkAccess(['admin']), async (req, res) => {
-    await pool.query('DELETE FROM produtos WHERE id = ?', [req.params.id]);
+    await dbQuery('DELETE FROM produtos WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   });
 
   // Movimentações
   app.get('/api/movimentacoes', async (req, res) => {
-    const [rows] = await pool.query('SELECT id, data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorunit as "valorUnit", valortotal as "valorTotal", produtoid as "produtoId" FROM movimentacoes ORDER BY id DESC');
+    const [rows] = await dbQuery('SELECT id, data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorunit as "valorUnit", valortotal as "valorTotal", produtoid as "produtoId" FROM movimentacoes ORDER BY id DESC');
     res.json(rows);
   });
 
   app.post('/api/movimentacoes', async (req, res) => {
     const { data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId } = req.body;
+    
+    if (isMockMode) {
+      await dbQuery(
+        'INSERT INTO movimentacoes (data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorunit, valortotal, produtoid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId]
+      );
+      const adjust = tipo === 'entrada' ? qtd : -qtd;
+      await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [adjust, produtoId]);
+      return res.json({ success: true });
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -649,24 +680,33 @@ async function startServer() {
   app.put('/api/movimentacoes/:id', checkAccess(['admin']), async (req, res) => {
     const { id } = req.params;
     const { qtd, peso, nf, responsavel, valorUnit, valorTotal, produtoId } = req.body;
+    
+    if (isMockMode) {
+      const [oldMovs] = await dbQuery('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      if (!oldMovs || oldMovs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
+      const oldMov = oldMovs[0];
+      const revertAdjust = oldMov.tipo === 'entrada' ? -oldMov.qtd : oldMov.qtd;
+      await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [revertAdjust, oldMov.produtoId]);
+      const newAdjust = oldMov.tipo === 'entrada' ? qtd : -qtd;
+      await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [newAdjust, produtoId]);
+      await dbQuery('UPDATE movimentacoes SET qtd = ?, peso = ?, nf = ?, responsavel = ?, valorunit = ?, valortotal = ? WHERE id = ?', [qtd, peso, nf, responsavel, valorUnit, valorTotal, id]);
+      return res.json({ success: true });
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       
-      // Get old movement to adjust stock
-      const [oldMovs] = await connection.query('SELECT id, data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorunit as "valorUnit", valortotal as "valorTotal", produtoid as "produtoId" FROM movimentacoes WHERE id = ?', [id]) as any[];
+      const [oldMovs] = await connection.query('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
       if (oldMovs.length === 0) throw new Error('Movimentação não encontrada');
       const oldMov = oldMovs[0];
 
-      // Revert old stock
       const revertAdjust = oldMov.tipo === 'entrada' ? -oldMov.qtd : oldMov.qtd;
       await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [revertAdjust, oldMov.produtoId]);
 
-      // Apply new stock
       const newAdjust = oldMov.tipo === 'entrada' ? qtd : -qtd;
       await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [newAdjust, produtoId]);
 
-      // Update movement
       await connection.query(
         'UPDATE movimentacoes SET qtd = ?, peso = ?, nf = ?, responsavel = ?, valorunit = ?, valortotal = ? WHERE id = ?',
         [qtd, peso, nf, responsavel, valorUnit, valorTotal, id]
@@ -684,15 +724,25 @@ async function startServer() {
 
   app.delete('/api/movimentacoes/:id', checkAccess(['admin']), async (req, res) => {
     const { id } = req.params;
+    
+    if (isMockMode) {
+      const [movs] = await dbQuery('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
+      if (!movs || movs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
+      const mov = movs[0];
+      const adjust = mov.tipo === 'entrada' ? -mov.qtd : mov.qtd;
+      if (mov.produtoId) await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [adjust, mov.produtoId]);
+      await dbQuery('DELETE FROM movimentacoes WHERE id = ?', [id]);
+      return res.json({ success: true });
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
       
-      const [movs] = await connection.query('SELECT id, data, codigo, produto, fornecedor, tipo, qtd, peso, nf, responsavel, valorunit as "valorUnit", valortotal as "valorTotal", produtoid as "produtoId" FROM movimentacoes WHERE id = ?', [id]) as any[];
+      const [movs] = await connection.query('SELECT * FROM movimentacoes WHERE id = ?', [id]) as any[];
       if (movs.length === 0) throw new Error('Movimentação não encontrada');
       const mov = movs[0];
 
-      // Revert stock
       const adjust = mov.tipo === 'entrada' ? -mov.qtd : mov.qtd;
       if (mov.produtoId) {
         await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [adjust, mov.produtoId]);
@@ -712,12 +762,22 @@ async function startServer() {
 
   // Movimentações Internas
   app.get('/api/movimentacoes_internas', async (req, res) => {
-    const [rows] = await pool.query('SELECT * FROM movimentacoes_internas ORDER BY id DESC LIMIT 100');
+    const [rows] = await dbQuery('SELECT * FROM movimentacoes_internas ORDER BY id DESC LIMIT 100');
     res.json(rows);
   });
 
   app.post('/api/movimentacoes_internas', async (req, res) => {
     const { data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId } = req.body;
+    
+    if (isMockMode) {
+      await dbQuery(
+        'INSERT INTO movimentacoes_internas (data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [data, codigo, produto, tipo, qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId]
+      );
+      await dbQuery('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
+      return res.json({ success: true });
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -741,6 +801,17 @@ async function startServer() {
   app.put('/api/movimentacoes_internas/:id', checkAccess(['admin']), async (req, res) => {
     const { id } = req.params;
     const { qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId } = req.body;
+    
+    if (isMockMode) {
+      const [oldMovs] = await dbQuery('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      if (!oldMovs || oldMovs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
+      const oldMov = oldMovs[0];
+      if (oldMov.produtoId) await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [oldMov.qtd, oldMov.produtoId]);
+      await dbQuery('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
+      await dbQuery('UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorUnit = ?, valorTotal = ?, produtoId = ? WHERE id = ?', [qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId, id]);
+      return res.json({ success: true });
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -749,15 +820,12 @@ async function startServer() {
       if (oldMovs.length === 0) throw new Error('Movimentação não encontrada');
       const oldMov = oldMovs[0];
 
-      // Revert old stock (add back)
       if (oldMov.produtoId) {
         await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [oldMov.qtd, oldMov.produtoId]);
       }
 
-      // Apply new stock (subtract)
       await connection.query('UPDATE produtos SET estoque = estoque - ? WHERE id = ?', [qtd, produtoId]);
 
-      // Update movement
       await connection.query(
         'UPDATE movimentacoes_internas SET qtd = ?, peso = ?, responsavel = ?, destino = ?, valorUnit = ?, valorTotal = ?, produtoId = ? WHERE id = ?',
         [qtd, peso, responsavel, destino, valorUnit, valorTotal, produtoId, id]
@@ -775,6 +843,16 @@ async function startServer() {
 
   app.delete('/api/movimentacoes_internas/:id', checkAccess(['admin']), async (req, res) => {
     const { id } = req.params;
+    
+    if (isMockMode) {
+      const [movs] = await dbQuery('SELECT * FROM movimentacoes_internas WHERE id = ?', [id]) as any[];
+      if (!movs || movs.length === 0) return res.status(404).json({ error: 'Movimentação não encontrada' });
+      const mov = movs[0];
+      if (mov.produtoId) await dbQuery('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [mov.qtd, mov.produtoId]);
+      await dbQuery('DELETE FROM movimentacoes_internas WHERE id = ?', [id]);
+      return res.json({ success: true });
+    }
+
     const connection = await pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -783,7 +861,6 @@ async function startServer() {
       if (movs.length === 0) throw new Error('Movimentação não encontrada');
       const mov = movs[0];
 
-      // Revert stock (add back)
       if (mov.produtoId) {
         await connection.query('UPDATE produtos SET estoque = estoque + ? WHERE id = ?', [mov.qtd, mov.produtoId]);
       }
@@ -803,21 +880,25 @@ async function startServer() {
   // Generic CRUD for Fornecedores, Funcionarios, Galpoes
   const createCrudRoutes = (tableName, columns) => {
     app.get(`/api/${tableName}`, async (req, res) => {
-      const [rows] = await pool.query(`SELECT * FROM ${tableName}`);
+      const [rows] = await dbQuery(`SELECT * FROM ${tableName}`);
       res.json(rows);
     });
     app.post(`/api/${tableName}`, checkAccess(['admin']), async (req, res) => {
       const values = columns.map(col => req.body[col]);
-      const [result] = await pool.query(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`, values) as any[];
-      res.json({ id: result.insertId });
+      try {
+        const [result] = await dbQuery(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`, values) as any[];
+        res.json({ id: result.insertId });
+      } catch (err) {
+        res.status(400).json({ error: err.message });
+      }
     });
     app.put(`/api/${tableName}/:id`, checkAccess(['admin']), async (req, res) => {
       const values = columns.map(col => req.body[col]);
-      await pool.query(`UPDATE ${tableName} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE id = ?`, [...values, req.params.id]);
+      await dbQuery(`UPDATE ${tableName} SET ${columns.map(col => `${col} = ?`).join(', ')} WHERE id = ?`, [...values, req.params.id]);
       res.json({ success: true });
     });
     app.delete(`/api/${tableName}/:id`, checkAccess(['admin']), async (req, res) => {
-      await pool.query(`DELETE FROM ${tableName} WHERE id = ?`, [req.params.id]);
+      await dbQuery(`DELETE FROM ${tableName} WHERE id = ?`, [req.params.id]);
       res.json({ success: true });
     });
   };
@@ -827,7 +908,7 @@ async function startServer() {
   
   // Special handling for funcionarios (usuario) due to password
   app.get('/api/funcionarios', checkAccess(['admin']), async (req, res) => {
-    const [rows] = await pool.query('SELECT id, nome, email, registro, funcao, nivel_acesso FROM usuario');
+    const [rows] = await dbQuery('SELECT id, nome, email, registro, funcao, nivel_acesso FROM usuario');
     // Map nivel_acesso to nivel for frontend
     const mapped = (rows as any[]).map(r => ({ ...r, nivel: r.nivel_acesso }));
     res.json(mapped);
@@ -835,7 +916,7 @@ async function startServer() {
   app.post('/api/funcionarios', checkAccess(['admin']), async (req, res) => {
     const { nome, senha, registro, funcao, nivel } = req.body;
     try {
-      const [result] = await pool.query('INSERT INTO usuario (nome, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?)', [nome, senha, registro, funcao, nivel]) as any[];
+      const [result] = await dbQuery('INSERT INTO usuario (nome, senha, registro, funcao, nivel_acesso) VALUES (?, ?, ?, ?, ?)', [nome, senha, registro, funcao, nivel]) as any[];
       res.json({ id: result.insertId });
     } catch (err) {
       res.status(400).json({ error: 'Nome de usuário já existe ou dados inválidos.' });
@@ -845,9 +926,9 @@ async function startServer() {
     const { nome, senha, registro, funcao, nivel } = req.body;
     try {
       if (senha) {
-        await pool.query('UPDATE usuario SET nome = ?, senha = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, senha, registro, funcao, nivel, req.params.id]);
+        await dbQuery('UPDATE usuario SET nome = ?, senha = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, senha, registro, funcao, nivel, req.params.id]);
       } else {
-        await pool.query('UPDATE usuario SET nome = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, registro, funcao, nivel, req.params.id]);
+        await dbQuery('UPDATE usuario SET nome = ?, registro = ?, funcao = ?, nivel_acesso = ? WHERE id = ?', [nome, registro, funcao, nivel, req.params.id]);
       }
       res.json({ success: true });
     } catch (err) {
@@ -855,7 +936,7 @@ async function startServer() {
     }
   });
   app.delete('/api/funcionarios/:id', checkAccess(['admin']), async (req, res) => {
-    await pool.query('DELETE FROM usuario WHERE id = ?', [req.params.id]);
+    await dbQuery('DELETE FROM usuario WHERE id = ?', [req.params.id]);
     res.json({ success: true });
   });
 
