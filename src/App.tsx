@@ -1044,8 +1044,8 @@ export default function App() {
                           const productMovs = movimentacoes.filter(m => m.produtoId === p.id);
                           const productMovsInt = movimentacoesInternas.filter(m => m.produtoId === p.id);
                           
-                          const totalEntrada = productMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
-                          const totalSaida = productMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0) + productMovsInt.reduce((acc, m) => acc + m.qtd, 0);
+                          const totalEntrada = productMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
+                          const totalSaida = productMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + productMovsInt.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
                           
                           const theoretical = totalEntrada - totalSaida;
                           const diff = theoretical - p.estoque;
@@ -1309,14 +1309,19 @@ const SidebarItem = ({ icon: Icon, label, active, onClick, badge = null }) => (
   </button>
 );
 
-const Dashboard = ({ produtos, movimentacoes, movimentacoesInternas }) => {
-  const totalEstoqueQtd = produtos.reduce((acc, p) => acc + p.estoque, 0);
-  const totalEstoqueValor = produtos.reduce((acc, p) => acc + (p.estoque * (p.valorUnit || 0)), 0);
+const Dashboard = ({ produtos = [], movimentacoes = [], movimentacoesInternas = [] }) => {
+  const safeProdutos = Array.isArray(produtos) ? produtos : [];
+  const safeMovimentacoes = Array.isArray(movimentacoes) ? movimentacoes : [];
+  const safeMovimentacoesInternas = Array.isArray(movimentacoesInternas) ? movimentacoesInternas : [];
+
+  const totalEstoqueQtd = safeProdutos.reduce((acc, p) => acc + (Number(p.estoque) || 0), 0);
+  const totalEstoqueValor = safeProdutos.reduce((acc, p) => acc + ((Number(p.estoque) || 0) * (Number(p.valorUnit) || 0)), 0);
   
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   
   const filterByMonth = (m) => {
+    if (!m || !m.data) return false;
     try {
       const datePart = m.data.split(',')[0].trim();
       const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
@@ -1326,19 +1331,19 @@ const Dashboard = ({ produtos, movimentacoes, movimentacoesInternas }) => {
     } catch (e) { return false; }
   };
 
-  const movimentosMes = movimentacoes.filter(filterByMonth);
-  const movimentosInternosMes = movimentacoesInternas.filter(filterByMonth);
+  const movimentosMes = safeMovimentacoes.filter(filterByMonth);
+  const movimentosInternosMes = safeMovimentacoesInternas.filter(filterByMonth);
 
-  const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
-  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (m.valorTotal || 0), 0);
+  const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
+  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
   
   const saidasMesQtd = 
-    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0) + 
-    movimentosInternosMes.reduce((acc, m) => acc + m.qtd, 0);
+    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + 
+    movimentosInternosMes.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
     
   const saidasMesVal = 
-    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0) +
-    movimentosInternosMes.reduce((acc, m) => acc + (m.valorTotal || 0), 0);
+    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) +
+    movimentosInternosMes.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
 
   // Process data for charts (last 6 months)
   const chartData = Array.from({ length: 6 }).map((_, i) => {
@@ -1349,6 +1354,7 @@ const Dashboard = ({ produtos, movimentacoes, movimentacoesInternas }) => {
     const yIndex = d.getFullYear();
 
     const filterBySpecificMonth = (m) => {
+      if (!m || !m.data) return false;
       try {
         const datePart = m.data.split(',')[0].trim();
         const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
@@ -1358,15 +1364,15 @@ const Dashboard = ({ produtos, movimentacoes, movimentacoesInternas }) => {
       } catch (e) { return false; }
     };
 
-    const monthMovs = movimentacoes.filter(filterBySpecificMonth);
-    const monthMovsInt = movimentacoesInternas.filter(filterBySpecificMonth);
+    const monthMovs = safeMovimentacoes.filter(filterBySpecificMonth);
+    const monthMovsInt = safeMovimentacoesInternas.filter(filterBySpecificMonth);
 
     return {
       name: monthName,
-      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0),
-      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0) + monthMovsInt.reduce((acc, m) => acc + m.qtd, 0),
-      entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (m.valorTotal || 0), 0),
-      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (m.valorTotal || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (m.valorTotal || 0), 0),
+      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
+      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
+      entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
+      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
     };
   });
 
@@ -1434,8 +1440,12 @@ const Dashboard = ({ produtos, movimentacoes, movimentacoesInternas }) => {
 const StatCard = ({ title, value, icon: Icon, color, trend = null }) => (
   <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
     <div className="flex items-center justify-between mb-4">
-      <div className={`p-3 rounded-xl ${color}`}><Icon className="w-6 h-6 text-white" /></div>
-      {trend && <span className={`text-xs font-bold px-2 py-1 rounded-full ${trend > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{trend > 0 ? '+' : ''}{trend}%</span>}
+      <div className={`p-3 rounded-xl ${color}`}>{Icon && <Icon className="w-6 h-6 text-white" />}</div>
+      {trend !== null && trend !== undefined && (
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${Number(trend) > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          {Number(trend) > 0 ? '+' : ''}{trend}%
+        </span>
+      )}
     </div>
     <h3 className="text-slate-500 text-sm font-medium mb-1">{title}</h3>
     <p className="text-2xl font-bold text-slate-900">{value}</p>
