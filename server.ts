@@ -55,14 +55,14 @@ const mockData: any = {
     { id: 1, codigo: 'VT-001', descricao: 'Tecido', tipo: 'Fardo', fornecedorId: 1, galpaoId: 1, estoque: 50, min: 10, pesoUnit: 2.0, valorUnit: 50.0 },
     { id: 2, codigo: 'VL-001', descricao: 'Linner', tipo: 'Fardo', fornecedorId: 2, galpaoId: 1, estoque: 50, min: 10, pesoUnit: 2.0, valorUnit: 60.0 },
     { id: 3, codigo: 'VA-001', descricao: 'Alça', tipo: 'Fardo', fornecedorId: 3, galpaoId: 2, estoque: 50, min: 10, pesoUnit: 2.0, valorUnit: 70.0 },
-    { id: 4, codigo: 'VM-001', descricao: 'Tecido Especial', tipo: 'Fardo', fornecedorId: 4, galpaoId: 2, estoque: 100, min: 10, pesoUnit: 2.0, valorUnit: 80.0 },
+    { id: 4, codigo: 'VF-001', descricao: 'Linhas e Cardaços', tipo: 'Fardo', fornecedorId: 4, galpaoId: 2, estoque: 100, min: 10, pesoUnit: 2.0, valorUnit: 80.0 },
     { id: 5, codigo: 'VT-002', descricao: 'Linner Reforçado', tipo: 'Fardo', fornecedorId: 5, galpaoId: 1, estoque: 100, min: 10, pesoUnit: 2.0, valorUnit: 90.0 }
   ],
   movimentacoes: [
     { id: 1, data: '01/03/2026 10:00:00', codigo: 'VT-001', produto: 'Tecido', fornecedor: 'Fornecedor Alfa', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-101', responsavel: 'admin', valorUnit: 50.0, valorTotal: 5000.0, produtoId: 1 },
     { id: 2, data: '01/03/2026 10:05:00', codigo: 'VL-001', produto: 'Linner', fornecedor: 'Fornecedor Beta', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-102', responsavel: 'admin', valorUnit: 60.0, valorTotal: 6000.0, produtoId: 2 },
     { id: 3, data: '01/03/2026 10:10:00', codigo: 'VA-001', produto: 'Alça', fornecedor: 'Fornecedor Gama', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-103', responsavel: 'admin', valorUnit: 70.0, valorTotal: 7000.0, produtoId: 3 },
-    { id: 4, data: '01/03/2026 10:15:00', codigo: 'VM-001', produto: 'Tecido Especial', fornecedor: 'Fornecedor Delta', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-104', responsavel: 'admin', valorUnit: 80.0, valorTotal: 8000.0, produtoId: 4 },
+    { id: 4, data: '01/03/2026 10:15:00', codigo: 'VF-001', produto: 'Linhas e Cardaços', fornecedor: 'Fornecedor Delta', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-104', responsavel: 'admin', valorUnit: 80.0, valorTotal: 8000.0, produtoId: 4 },
     { id: 5, data: '01/03/2026 10:20:00', codigo: 'VT-002', produto: 'Linner Reforçado', fornecedor: 'Fornecedor Epsilon', tipo: 'entrada', qtd: 100, peso: 200.0, nf: 'NF-105', responsavel: 'admin', valorUnit: 90.0, valorTotal: 9000.0, produtoId: 5 },
     { id: 6, data: '01/03/2026 14:00:00', codigo: 'VT-001', produto: 'Tecido', fornecedor: 'Fornecedor Alfa', tipo: 'saida', qtd: 50, peso: 100.0, nf: 'NF-S01', responsavel: 'João Silva', valorUnit: 50.0, valorTotal: 2500.0, produtoId: 1 },
     { id: 7, data: '01/03/2026 14:05:00', codigo: 'VL-001', produto: 'Linner', fornecedor: 'Fornecedor Beta', tipo: 'saida', qtd: 50, peso: 100.0, nf: 'NF-S02', responsavel: 'João Silva', valorUnit: 60.0, valorTotal: 3000.0, produtoId: 2 },

@@ -1072,7 +1072,7 @@ export default function App() {
                   >
                     <option value="">Prefixo</option>
                     <option value="VT">VT (Tecido)</option>
-                    <option value="VM">VM (Materiais)</option>
+                    <option value="VF">VF (Fios, Linhas e Cardaços)</option>
                     <option value="VL">VL (Liner)</option>
                     <option value="VA">VA (Alças)</option>
                     <option value="VD">VD (Diversos)</option>
