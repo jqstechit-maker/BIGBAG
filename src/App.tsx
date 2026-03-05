@@ -173,8 +173,8 @@ export default function App() {
     ];
 
     const rows = data.map(m => [
-      m.data, m.codigo, m.produto, m.fornecedor, m.qtd, m.peso.toFixed(3), m.nf, m.responsavel,
-      ...(userRole === 'admin' ? [m.valorUnit.toFixed(3), m.valorTotal.toFixed(3)] : [])
+      m.data, m.codigo, m.produto, m.fornecedor, m.qtd, Number(m.peso || 0).toFixed(3), m.nf, m.responsavel,
+      ...(userRole === 'admin' ? [Number(m.valorUnit || 0).toFixed(3), Number(m.valorTotal || 0).toFixed(3)] : [])
     ]);
     
     doc.setFontSize(18);
@@ -632,7 +632,18 @@ export default function App() {
               <option value="funcionario" className="bg-slate-900">Funcionário</option>
             </select>
           </div>
-          <button onClick={() => setIsLoggedIn(false)} className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+          <button 
+            onClick={async () => {
+              try {
+                await apiFetch('/api/logout', { method: 'POST' });
+                setIsLoggedIn(false);
+                setCurrentUser(null);
+              } catch (e) {
+                setIsLoggedIn(false);
+              }
+            }} 
+            className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          >
             <LogOut className="w-5 h-5 mr-3" /> Sair
           </button>
         </div>
