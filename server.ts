@@ -9,13 +9,13 @@ import session from 'express-session';
 
 dotenv.config();
 
-// Verificação de variáveis de ambiente obrigatórias para MySQL (XAMPP)
+// Verificação de variáveis de ambiente para MySQL (XAMPP)
 const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_NAME'];
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
 
 if (missingEnvVars.length > 0) {
-  console.error('ERRO CRÍTICO: Variáveis de ambiente ausentes:', missingEnvVars.join(', '));
-  process.exit(1);
+  console.warn('AVISO: Algumas variáveis de ambiente do banco de dados estão ausentes:', missingEnvVars.join(', '));
+  console.warn('O sistema iniciará em modo de demonstração (Mock Mode).');
 }
 
 // Extend session type for TypeScript
@@ -334,6 +334,13 @@ async function dbQuery(sqlStr: string, params: any[] = []) {
 async function initializeDatabase() {
   console.log('--- INICIANDO CONEXÃO COM O BANCO DE DADOS ---');
   
+  if (missingEnvVars.length > 0) {
+    isMockMode = true;
+    pool = createMockPool();
+    console.log('--- SISTEMA INICIADO EM MODO DE TESTE (Variáveis ausentes) ---');
+    return;
+  }
+
   try {
     // 1. Tentar conectar sem especificar o banco de dados primeiro
     const configSemBanco = { ...dbConfig, database: undefined };
@@ -525,15 +532,15 @@ async function startServer() {
 
   app.use(session({
     secret: process.env.SESSION_SECRET || 'virtude-secret-key-2026',
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     name: 'virtude_session',
+    proxy: true,
     cookie: {
-      // Se for localhost, secure deve ser false. Se for no preview, deve ser true.
-      secure: !isLocalhost || isProduction, 
+      // No AI Studio (iframe), secure deve ser true e sameSite deve ser 'none'
+      secure: true, 
       httpOnly: true,
-      // sameSite 'none' exige secure: true. Para localhost, usamos 'lax'.
-      sameSite: (!isLocalhost || isProduction) ? 'none' : 'lax',
+      sameSite: 'none',
       maxAge: 1000 * 60 * 60 * 24 // 24 hours
     }
   }));
