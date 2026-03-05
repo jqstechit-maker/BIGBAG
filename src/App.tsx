@@ -126,6 +126,277 @@ const GenericTable = ({ headers, data, onEdit, onDelete, renderRow }) => {
   );
 };
 
+const Login = ({ onLogin }) => {
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin');
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full blur-[120px]" />
+      </div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl relative z-10">
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-600/20">
+            <Warehouse className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">VIRTUDE BIGBAG'S</h1>
+          <p className="text-slate-400">Controle de Estoque & Logística</p>
+        </div>
+        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(username, password); }}>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Usuário</label>
+            <input 
+              type="text" 
+              value={username} 
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Senha</label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
+            />
+          </div>
+          <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all transform active:scale-[0.98]">Acessar Sistema</button>
+        </form>
+        <p className="mt-8 text-center text-slate-500 text-sm">By <a href="https://www.jqstechit.com.br" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">JqsTechit</a> 2026</p>
+      </motion.div>
+    </div>
+  );
+};
+
+const SidebarItem = ({ icon: Icon, label, active, onClick, badge = null }) => (
+  <button onClick={onClick} className={`w-full flex items-center px-4 py-3 text-sm font-medium transition-colors rounded-lg mb-1 ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-slate-500'}`} />
+    <span className="flex-1 text-left">{label}</span>
+    {badge && <span className="px-2 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full">{badge}</span>}
+  </button>
+);
+
+const StatCard = ({ title, value, icon: Icon, color, trend = null }) => (
+  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+    <div className="flex items-center justify-between mb-4">
+      <div className={`p-3 rounded-xl ${color}`}>{Icon && <Icon className="w-6 h-6 text-white" />}</div>
+      {trend !== null && trend !== undefined && (
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${Number(trend) > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+          {Number(trend) > 0 ? '+' : ''}{trend}%
+        </span>
+      )}
+    </div>
+    <h3 className="text-slate-500 text-sm font-medium mb-1">{title}</h3>
+    <p className="text-2xl font-bold text-slate-900">{value}</p>
+  </div>
+);
+
+const FilterBar = ({ fields, filters, onFilterChange, onClear, fornecedores, funcionarios }) => (
+  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-6 flex flex-wrap gap-4 items-end">
+    {fields.includes('data') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Data</label>
+        <input type="date" className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.data} onChange={e => onFilterChange('data', e.target.value)} />
+      </div>
+    )}
+    {fields.includes('codigo') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Código</label>
+        <input placeholder="Ex: VT-0048" className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.codigo} onChange={e => onFilterChange('codigo', e.target.value)} />
+      </div>
+    )}
+    {fields.includes('descricao') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Descrição</label>
+        <input placeholder="Buscar..." className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.descricao} onChange={e => onFilterChange('descricao', e.target.value)} />
+      </div>
+    )}
+    {fields.includes('tipo') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo</label>
+        <select className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.tipo} onChange={e => onFilterChange('tipo', e.target.value)}>
+          <option value="">Todos</option>
+          <option value="Bobina">Bobina</option>
+          <option value="Fardo">Fardo</option>
+          <option value="Caixa">Caixa</option>
+          <option value="Pacote">Pacote</option>
+          <option value="Rolo">Rolo</option>
+        </select>
+      </div>
+    )}
+    {fields.includes('fornecedor') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fornecedor</label>
+        <select className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.fornecedor} onChange={e => onFilterChange('fornecedor', e.target.value)}>
+          <option value="">Todos</option>
+          {fornecedores.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+        </select>
+      </div>
+    )}
+    {fields.includes('nf') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">NF</label>
+        <input placeholder="Nº Nota" className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.nf} onChange={e => onFilterChange('nf', e.target.value)} />
+      </div>
+    )}
+    {fields.includes('responsavel') && (
+      <div className="flex-1 min-w-[150px]">
+        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Responsável</label>
+        <select className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.responsavel} onChange={e => onFilterChange('responsavel', e.target.value)}>
+          <option value="">Todos</option>
+          {funcionarios.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+        </select>
+      </div>
+    )}
+    <button onClick={onClear} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Limpar Filtros">
+      <Trash2 className="w-5 h-5" />
+    </button>
+  </div>
+);
+
+const Dashboard = ({ produtos = [], movimentacoes = [], movimentacoesInternas = [] }) => {
+  const safeProdutos = Array.isArray(produtos) ? produtos : [];
+  const safeMovimentacoes = Array.isArray(movimentacoes) ? movimentacoes : [];
+  const safeMovimentacoesInternas = Array.isArray(movimentacoesInternas) ? movimentacoesInternas : [];
+
+  const totalEstoqueQtd = safeProdutos.reduce((acc, p) => acc + (Number(p.estoque) || 0), 0);
+  const totalEstoqueValor = safeProdutos.reduce((acc, p) => acc + ((Number(p.estoque) || 0) * (Number(p.valorUnit) || 0)), 0);
+  
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const datePart = dateStr.split(' ')[0].split(',')[0];
+    if (datePart.includes('/')) {
+      const [d, m, y] = datePart.split('/');
+      return { month: parseInt(m) - 1, year: parseInt(y) };
+    } else if (datePart.includes('-')) {
+      const parts = datePart.split('-');
+      if (parts[0].length === 4) { // YYYY-MM-DD
+        return { month: parseInt(parts[1]) - 1, year: parseInt(parts[0]) };
+      } else { // DD-MM-YYYY
+        return { month: parseInt(parts[1]) - 1, year: parseInt(parts[2]) };
+      }
+    }
+    return null;
+  };
+
+  const filterByMonth = (m) => {
+    const parsed = parseDate(m?.data);
+    if (!parsed) return false;
+    return parsed.month === currentMonth && parsed.year === currentYear;
+  };
+
+  const movimentosMes = safeMovimentacoes.filter(filterByMonth);
+  const movimentosInternosMes = safeMovimentacoesInternas.filter(filterByMonth);
+
+  const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
+  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
+  
+  const saidasMesQtd = 
+    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + 
+    movimentosInternosMes.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
+    
+  const saidasMesVal = 
+    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) +
+    movimentosInternosMes.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
+
+  // Process data for charts (last 6 months)
+  const chartData = Array.from({ length: 6 }).map((_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    const monthName = d.toLocaleString('pt-BR', { month: 'short' });
+    const mIndex = d.getMonth();
+    const yIndex = d.getFullYear();
+
+    const filterBySpecificMonth = (m) => {
+      const parsed = parseDate(m?.data);
+      if (!parsed) return false;
+      return parsed.month === mIndex && parsed.year === yIndex;
+    };
+
+    const monthMovs = safeMovimentacoes.filter(filterBySpecificMonth);
+    const monthMovsInt = safeMovimentacoesInternas.filter(filterBySpecificMonth);
+
+    return {
+      name: monthName,
+      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
+      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
+      entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
+      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
+    };
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard title="Entradas Qtd (Mês)" value={entradasMesQtd.toLocaleString()} icon={ArrowDownCircle} color="bg-blue-500" />
+        <StatCard title="Entradas Valor (Mês)" value={`R$ ${entradasMesVal.toFixed(3)}`} icon={DollarSign} color="bg-green-500" />
+        <StatCard title="Saídas Qtd (Mês)" value={saidasMesQtd.toLocaleString()} icon={ArrowUpCircle} color="bg-red-500" />
+        <StatCard title="Saídas Valor (Mês)" value={`R$ ${saidasMesVal.toFixed(3)}`} icon={DollarSign} color="bg-orange-500" />
+        <StatCard title="Valor Total Estoque" value={`R$ ${totalEstoqueValor.toFixed(3)}`} icon={Warehouse} color="bg-amber-500" />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-[400px]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Fluxo de Quantidades</h3>
+            <div className="flex items-center space-x-4 text-[10px] font-bold uppercase tracking-widest">
+              <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 rounded-sm mr-2"></div> Entradas</div>
+              <div className="flex items-center"><div className="w-3 h-3 bg-red-500 rounded-sm mr-2"></div> Saídas</div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+              <Tooltip 
+                cursor={{fill: '#f8fafc'}}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+              />
+              <Bar dataKey="entradasQtd" name="Entradas (Qtd)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="saidasQtd" name="Saídas (Qtd)" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-[400px]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Fluxo de Valores (R$)</h3>
+            <div className="flex items-center space-x-4 text-[10px] font-bold uppercase tracking-widest">
+              <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded-sm mr-2"></div> Entradas</div>
+              <div className="flex items-center"><div className="w-3 h-3 bg-orange-500 rounded-sm mr-2"></div> Saídas</div>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `R$ ${value}`} />
+              <Tooltip 
+                formatter={(value) => [`R$ ${Number(value).toFixed(3)}`, '']}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+              />
+              <Line type="monotone" dataKey="entradasVal" name="Entradas (R$)" stroke="#22c55e" strokeWidth={3} dot={{ r: 4, fill: '#22c55e' }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="saidasVal" name="Saídas (R$)" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316' }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const COLORS = ['#3b82f6', '#22c55e', '#eab308', '#a855f7', '#6b7280'];
+
+// --- Main App Component ---
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState('admin'); // 'admin' or 'funcionario'
@@ -242,7 +513,9 @@ export default function App() {
       } catch (e) {}
     };
     checkSession();
+  }, []);
 
+  useEffect(() => {
     if (isLoggedIn) {
       fetchData();
     }
@@ -331,69 +604,6 @@ export default function App() {
       data: ''
     });
   };
-
-  const FilterBar = ({ fields }) => (
-    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-6 flex flex-wrap gap-4 items-end">
-      {fields.includes('data') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Data</label>
-          <input type="date" className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.data} onChange={e => handleFilterChange('data', e.target.value)} />
-        </div>
-      )}
-      {fields.includes('codigo') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Código</label>
-          <input placeholder="Ex: VT-0048" className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.codigo} onChange={e => handleFilterChange('codigo', e.target.value)} />
-        </div>
-      )}
-      {fields.includes('descricao') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Descrição</label>
-          <input placeholder="Buscar..." className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.descricao} onChange={e => handleFilterChange('descricao', e.target.value)} />
-        </div>
-      )}
-      {fields.includes('tipo') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo</label>
-          <select className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.tipo} onChange={e => handleFilterChange('tipo', e.target.value)}>
-            <option value="">Todos</option>
-            <option value="Bobina">Bobina</option>
-            <option value="Fardo">Fardo</option>
-            <option value="Caixa">Caixa</option>
-            <option value="Pacote">Pacote</option>
-            <option value="Rolo">Rolo</option>
-          </select>
-        </div>
-      )}
-      {fields.includes('fornecedor') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fornecedor</label>
-          <select className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.fornecedor} onChange={e => handleFilterChange('fornecedor', e.target.value)}>
-            <option value="">Todos</option>
-            {fornecedores.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
-          </select>
-        </div>
-      )}
-      {fields.includes('nf') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">NF</label>
-          <input placeholder="Nº Nota" className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.nf} onChange={e => handleFilterChange('nf', e.target.value)} />
-        </div>
-      )}
-      {fields.includes('responsavel') && (
-        <div className="flex-1 min-w-[150px]">
-          <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Responsável</label>
-          <select className="w-full p-2 bg-slate-50 border rounded-lg text-xs" value={filters.responsavel} onChange={e => handleFilterChange('responsavel', e.target.value)}>
-            <option value="">Todos</option>
-            {funcionarios.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
-          </select>
-        </div>
-      )}
-      <button onClick={clearFilters} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Limpar Filtros">
-        <Trash2 className="w-5 h-5" />
-      </button>
-    </div>
-  );
 
   const openAddModal = () => {
     setEditingItem(null);
@@ -673,7 +883,14 @@ export default function App() {
 
             {activeTab === 'produtos' && (
               <>
-                <FilterBar fields={['codigo', 'descricao', 'tipo', 'fornecedor']} />
+                <FilterBar 
+                  fields={['codigo', 'descricao', 'tipo', 'fornecedor']} 
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  onClear={clearFilters}
+                  fornecedores={fornecedores}
+                  funcionarios={funcionarios}
+                />
                 <GenericTable 
                   headers={['Código', 'Descrição', 'Tipo', 'Estoque']}
                   data={produtos.filter(p => {
@@ -762,7 +979,14 @@ export default function App() {
 
             {(activeTab === 'entradas' || activeTab === 'saidas') && (
               <>
-                <FilterBar fields={['data', 'codigo', 'nf', 'responsavel', 'fornecedor']} />
+                <FilterBar 
+                  fields={['data', 'codigo', 'nf', 'responsavel', 'fornecedor']} 
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  onClear={clearFilters}
+                  fornecedores={fornecedores}
+                  funcionarios={funcionarios}
+                />
                 <GenericTable 
                   headers={[
                     'Data', 'Código', 'Descrição', 'Fornecedor', 'Qtd', 'Peso', 'NF', 'Responsável',
@@ -814,7 +1038,14 @@ export default function App() {
             {activeTab === 'estoque' && (
               <>
                 <div className="flex items-center justify-between mb-4">
-                  <FilterBar fields={['codigo', 'descricao', 'tipo']} />
+                  <FilterBar 
+                    fields={['codigo', 'descricao', 'tipo']} 
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    onClear={clearFilters}
+                    fornecedores={fornecedores}
+                    funcionarios={funcionarios}
+                  />
                   <div className="flex bg-white border border-slate-100 p-1 rounded-xl shadow-sm ml-4">
                     <button 
                       onClick={() => setEstoqueViewMode('grid')}
@@ -952,7 +1183,14 @@ export default function App() {
 
             {activeTab === 'internas' && (
               <>
-                <FilterBar fields={['data', 'codigo', 'responsavel']} />
+                <FilterBar 
+                  fields={['data', 'codigo', 'responsavel']} 
+                  filters={filters}
+                  onFilterChange={handleFilterChange}
+                  onClear={clearFilters}
+                  fornecedores={fornecedores}
+                  funcionarios={funcionarios}
+                />
                 <GenericTable 
                   headers={['Data', 'Código', 'Produto', 'Tipo', 'Qtd', 'Peso', 'Valor Unit.', 'Valor Total', 'Responsável', 'Destino']}
                   data={movimentacoesInternas.filter(m => {
@@ -1265,202 +1503,3 @@ export default function App() {
     </div>
   );
 }
-
-// Re-using Login component from previous turn...
-const Login = ({ onLogin }) => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin');
-
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full blur-[120px]" />
-      </div>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl relative z-10">
-        <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-600/20">
-            <Warehouse className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">VIRTUDE BIGBAG'S</h1>
-          <p className="text-slate-400">Controle de Estoque & Logística</p>
-        </div>
-        <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(username, password); }}>
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Usuário</label>
-            <input 
-              type="text" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Senha</label>
-            <input 
-              type="password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
-            />
-          </div>
-          <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all transform active:scale-[0.98]">Acessar Sistema</button>
-        </form>
-        <p className="mt-8 text-center text-slate-500 text-sm">By <a href="https://www.jqstechit.com.br" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">JqsTechit</a> 2026</p>
-      </motion.div>
-    </div>
-  );
-};
-
-const SidebarItem = ({ icon: Icon, label, active, onClick, badge = null }) => (
-  <button onClick={onClick} className={`w-full flex items-center px-4 py-3 text-sm font-medium transition-colors rounded-lg mb-1 ${active ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-    <Icon className={`w-5 h-5 mr-3 ${active ? 'text-white' : 'text-slate-500'}`} />
-    <span className="flex-1 text-left">{label}</span>
-    {badge && <span className="px-2 py-0.5 text-[10px] font-bold bg-red-500 text-white rounded-full">{badge}</span>}
-  </button>
-);
-
-const Dashboard = ({ produtos = [], movimentacoes = [], movimentacoesInternas = [] }) => {
-  const safeProdutos = Array.isArray(produtos) ? produtos : [];
-  const safeMovimentacoes = Array.isArray(movimentacoes) ? movimentacoes : [];
-  const safeMovimentacoesInternas = Array.isArray(movimentacoesInternas) ? movimentacoesInternas : [];
-
-  const totalEstoqueQtd = safeProdutos.reduce((acc, p) => acc + (Number(p.estoque) || 0), 0);
-  const totalEstoqueValor = safeProdutos.reduce((acc, p) => acc + ((Number(p.estoque) || 0) * (Number(p.valorUnit) || 0)), 0);
-  
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
-  const filterByMonth = (m) => {
-    if (!m || !m.data) return false;
-    try {
-      const datePart = m.data.split(',')[0].trim();
-      const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
-      const mMonth = datePart.includes('/') ? parseInt(mes) - 1 : parseInt(mes) - 1;
-      const mYear = datePart.includes('/') ? parseInt(ano) : parseInt(dia);
-      return mMonth === currentMonth && mYear === currentYear;
-    } catch (e) { return false; }
-  };
-
-  const movimentosMes = safeMovimentacoes.filter(filterByMonth);
-  const movimentosInternosMes = safeMovimentacoesInternas.filter(filterByMonth);
-
-  const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
-  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
-  
-  const saidasMesQtd = 
-    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + 
-    movimentosInternosMes.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
-    
-  const saidasMesVal = 
-    movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) +
-    movimentosInternosMes.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
-
-  // Process data for charts (last 6 months)
-  const chartData = Array.from({ length: 6 }).map((_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    const monthName = d.toLocaleString('pt-BR', { month: 'short' });
-    const mIndex = d.getMonth();
-    const yIndex = d.getFullYear();
-
-    const filterBySpecificMonth = (m) => {
-      if (!m || !m.data) return false;
-      try {
-        const datePart = m.data.split(',')[0].trim();
-        const [dia, mes, ano] = datePart.includes('/') ? datePart.split('/') : datePart.split('-');
-        const mMonth = datePart.includes('/') ? parseInt(mes) - 1 : parseInt(mes) - 1;
-        const mYear = datePart.includes('/') ? parseInt(ano) : parseInt(dia);
-        return mMonth === mIndex && mYear === yIndex;
-      } catch (e) { return false; }
-    };
-
-    const monthMovs = safeMovimentacoes.filter(filterBySpecificMonth);
-    const monthMovsInt = safeMovimentacoesInternas.filter(filterBySpecificMonth);
-
-    return {
-      name: monthName,
-      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
-      saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
-      entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
-      saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
-    };
-  });
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard title="Entradas Qtd (Mês)" value={entradasMesQtd.toLocaleString()} icon={ArrowDownCircle} color="bg-blue-500" />
-        <StatCard title="Entradas Valor (Mês)" value={`R$ ${entradasMesVal.toFixed(3)}`} icon={DollarSign} color="bg-green-500" />
-        <StatCard title="Saídas Qtd (Mês)" value={saidasMesQtd.toLocaleString()} icon={ArrowUpCircle} color="bg-red-500" />
-        <StatCard title="Saídas Valor (Mês)" value={`R$ ${saidasMesVal.toFixed(3)}`} icon={DollarSign} color="bg-orange-500" />
-        <StatCard title="Valor Total Estoque" value={`R$ ${totalEstoqueValor.toFixed(3)}`} icon={Warehouse} color="bg-amber-500" />
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-[400px]">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Fluxo de Quantidades</h3>
-            <div className="flex items-center space-x-4 text-[10px] font-bold uppercase tracking-widest">
-              <div className="flex items-center"><div className="w-3 h-3 bg-blue-500 rounded-sm mr-2"></div> Entradas</div>
-              <div className="flex items-center"><div className="w-3 h-3 bg-red-500 rounded-sm mr-2"></div> Saídas</div>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-              <Tooltip 
-                cursor={{fill: '#f8fafc'}}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
-              />
-              <Bar dataKey="entradasQtd" name="Entradas (Qtd)" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="saidasQtd" name="Saídas (Qtd)" fill="#ef4444" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm h-[400px]">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Fluxo de Valores (R$)</h3>
-            <div className="flex items-center space-x-4 text-[10px] font-bold uppercase tracking-widest">
-              <div className="flex items-center"><div className="w-3 h-3 bg-green-500 rounded-sm mr-2"></div> Entradas</div>
-              <div className="flex items-center"><div className="w-3 h-3 bg-orange-500 rounded-sm mr-2"></div> Saídas</div>
-            </div>
-          </div>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `R$ ${value}`} />
-              <Tooltip 
-                formatter={(value) => [`R$ ${Number(value).toFixed(3)}`, '']}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
-              />
-              <Line type="monotone" dataKey="entradasVal" name="Entradas (R$)" stroke="#22c55e" strokeWidth={3} dot={{ r: 4, fill: '#22c55e' }} activeDot={{ r: 6 }} />
-              <Line type="monotone" dataKey="saidasVal" name="Saídas (R$)" stroke="#f97316" strokeWidth={3} dot={{ r: 4, fill: '#f97316' }} activeDot={{ r: 6 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const StatCard = ({ title, value, icon: Icon, color, trend = null }) => (
-  <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-    <div className="flex items-center justify-between mb-4">
-      <div className={`p-3 rounded-xl ${color}`}>{Icon && <Icon className="w-6 h-6 text-white" />}</div>
-      {trend !== null && trend !== undefined && (
-        <span className={`text-xs font-bold px-2 py-1 rounded-full ${Number(trend) > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-          {Number(trend) > 0 ? '+' : ''}{trend}%
-        </span>
-      )}
-    </div>
-    <h3 className="text-slate-500 text-sm font-medium mb-1">{title}</h3>
-    <p className="text-2xl font-bold text-slate-900">{value}</p>
-  </div>
-);
-
-const COLORS = ['#3b82f6', '#22c55e', '#eab308', '#a855f7', '#6b7280'];
