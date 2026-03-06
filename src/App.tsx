@@ -22,7 +22,8 @@ import {
   FileText,
   Download,
   LayoutGrid,
-  List
+  List,
+  RotateCcw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -44,7 +45,11 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Mock Data Initial State ---
-const INITIAL_PRODUTOS = [];
+const INITIAL_PRODUTOS = [
+  { id: 1, codigo: 'VT-0048', descricao: 'BigBag 90x90x120', tipo: 'Fardo', fornecedorId: 1, galpaoId: 1, estoque: 150, min: 50, pesoUnit: 1.2, valorUnit: 45.50 },
+  { id: 2, codigo: 'VT-0052', descricao: 'BigBag 100x100x140', tipo: 'Fardo', fornecedorId: 2, galpaoId: 1, estoque: 80, min: 100, pesoUnit: 1.5, valorUnit: 52.00 },
+  { id: 3, codigo: 'VT-0089', descricao: 'Bobina Plástica 1200mm', tipo: 'Bobina', fornecedorId: 1, galpaoId: 2, estoque: 25, min: 10, pesoUnit: 45.0, valorUnit: 380.00 },
+];
 
 const INITIAL_FORNECEDORES = [
   { id: 1, nome: 'Plásticos S.A', telefone: '(11) 9999-8888', email: 'contato@plasticos.com' },
@@ -58,9 +63,17 @@ const INITIAL_GALPOES = [
 
 const INITIAL_FUNCIONARIOS = [
   { id: 1, nome: 'João Silva', email: 'admin@admin.com', registro: '001', funcao: 'Almoxarife', nivel: 'admin', senha: 'admin' },
+  { id: 2, nome: 'Maria Souza', email: 'maria@empresa.com', registro: '002', funcao: 'Operador', nivel: 'funcionario', senha: '123' },
 ];
 
-const INITIAL_MOVIMENTACOES = [];
+const INITIAL_MOVIMENTACOES = [
+  { id: 1, data: '01/03/2026, 10:00:00', codigo: 'VT-0048', produto: 'BigBag 90x90x120', fornecedor: 'Plásticos S.A', tipo: 'entrada', qtd: 100, peso: 120, nf: '12345', responsavel: 'João Silva', valorUnit: 45.50, valorTotal: 4550.00, produtoId: 1 },
+  { id: 2, data: '02/03/2026, 14:30:00', codigo: 'VT-0052', produto: 'BigBag 100x100x140', fornecedor: 'Têxtil Brasil', tipo: 'saida', qtd: 20, peso: 30, nf: '54321', responsavel: 'Maria Souza', valorUnit: 52.00, valorTotal: 1040.00, produtoId: 2 },
+];
+
+const INITIAL_MOVIMENTACOES_INTERNAS = [
+  { id: 1, data: '03/03/2026, 09:15:00', codigo: 'VT-0048', produto: 'BigBag 90x90x120', tipo: 'Produção', qtd: 10, peso: 12, responsavel: 'João Silva', destino: 'Linha 1', valorUnit: 45.50, valorTotal: 455.00, produtoId: 1 },
+];
 
 // --- Components ---
 
@@ -77,7 +90,7 @@ const Modal = ({ title, children, onClose, onSave }) => (
           <LogOut className="w-5 h-5 rotate-90" />
         </button>
       </div>
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
         {children}
       </div>
       <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end space-x-3">
@@ -142,7 +155,7 @@ const Login = ({ onLogin }) => {
             <Warehouse className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">VIRTUDE BIGBAG'S</h1>
-          <p className="text-slate-400">Controle de Estoque & Logística</p>
+          <p className="text-slate-400">Controle de Estoque & Logística (Modo Preview)</p>
         </div>
         <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onLogin(username, password); }}>
           <div>
@@ -163,7 +176,9 @@ const Login = ({ onLogin }) => {
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all" 
             />
           </div>
-          <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all transform active:scale-[0.98]">Acessar Sistema</button>
+          <div className="flex flex-col gap-3">
+            <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all transform active:scale-[0.98]">Acessar Sistema</button>
+          </div>
         </form>
         <p className="mt-8 text-center text-slate-500 text-sm">By <a href="https://www.jqstechit.com.br" target="_blank" rel="noopener noreferrer" className="font-bold text-blue-400 hover:underline">JqsTechit</a> 2026</p>
       </motion.div>
@@ -221,8 +236,6 @@ const FilterBar = ({ fields, filters, onFilterChange, onClear, fornecedores, fun
           <option value="">Todos</option>
           {activeTab === 'internas' ? (
             <>
-              <option value="entrada">Entrada</option>
-              <option value="saida">Saída</option>
               <option value="Produção">Produção</option>
               <option value="Transferência">Transferência</option>
             </>
@@ -231,6 +244,7 @@ const FilterBar = ({ fields, filters, onFilterChange, onClear, fornecedores, fun
               <option value="Bobina">Bobina</option>
               <option value="Fardo">Fardo</option>
               <option value="Caixa">Caixa</option>
+              <option value="Pallet">Pallet</option>
               <option value="Pacote">Pacote</option>
               <option value="Rolo">Rolo</option>
             </>
@@ -306,8 +320,8 @@ const Dashboard = ({ produtos = [], movimentacoes = [], movimentacoesInternas = 
   const movimentosMes = safeMovimentacoes.filter(filterByMonth);
   const movimentosInternosMes = safeMovimentacoesInternas.filter(filterByMonth);
 
-  const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
-  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
+  const entradasMesQtd = movimentosMes.filter(m => m.tipo === 'entrada' || m.tipo === 'devolucao').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
+  const entradasMesVal = movimentosMes.filter(m => m.tipo === 'entrada' || m.tipo === 'devolucao').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0);
   
   const saidasMesQtd = 
     movimentosMes.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + 
@@ -336,9 +350,9 @@ const Dashboard = ({ produtos = [], movimentacoes = [], movimentacoesInternas = 
 
     return {
       name: monthName,
-      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
+      entradasQtd: monthMovs.filter(m => m.tipo === 'entrada' || m.tipo === 'devolucao').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
       saidasQtd: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0),
-      entradasVal: monthMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
+      entradasVal: monthMovs.filter(m => m.tipo === 'entrada' || m.tipo === 'devolucao').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
       saidasVal: monthMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0) + monthMovsInt.reduce((acc, m) => acc + (Number(m.valorTotal) || 0), 0),
     };
   });
@@ -410,163 +424,11 @@ const COLORS = ['#3b82f6', '#22c55e', '#eab308', '#a855f7', '#6b7280'];
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState('admin'); // 'admin' or 'funcionario'
+  const [userRole, setUserRole] = useState('admin');
   const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [estoqueViewMode, setEstoqueViewMode] = useState('grid'); // 'grid' or 'list'
+  const [estoqueViewMode, setEstoqueViewMode] = useState('grid');
   
-  const exportToExcel = (type) => {
-    const data = movimentacoes
-      .filter(m => m.tipo === type)
-      .map(m => {
-        const base = {
-          Data: m.data,
-          Código: m.codigo,
-          Produto: m.produto,
-          Fornecedor: m.fornecedor,
-          Quantidade: m.qtd,
-          Peso: m.peso,
-          NF: m.nf,
-          Responsável: m.responsavel
-        };
-        if (userRole === 'admin') {
-          return {
-            ...base,
-            'Valor Unitário': Number(m.valorUnit).toFixed(3),
-            'Valor Total': Number(m.valorTotal).toFixed(3)
-          };
-        }
-        return base;
-      });
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, type === 'entrada' ? 'Entradas' : 'Saídas');
-    XLSX.writeFile(workbook, `Relatorio_${type}_${new Date().toISOString().split('T')[0]}.xlsx`);
-  };
-
-  const exportToPDF = (type) => {
-    const doc = new jsPDF('l', 'mm', 'a4');
-    const data = movimentacoes.filter(m => m.tipo === type);
-    
-    const headers = [
-      'Data', 'Código', 'Produto', 'Fornecedor', 'Qtd', 'Peso', 'NF', 'Responsável',
-      ...(userRole === 'admin' ? ['V. Unit', 'V. Total'] : [])
-    ];
-
-    const rows = data.map(m => [
-      m.data, m.codigo, m.produto, m.fornecedor, m.qtd, Number(m.peso || 0).toFixed(3), m.nf, m.responsavel,
-      ...(userRole === 'admin' ? [Number(m.valorUnit || 0).toFixed(3), Number(m.valorTotal || 0).toFixed(3)] : [])
-    ]);
-    
-    doc.setFontSize(18);
-    doc.text(`Relatório de ${type === 'entrada' ? 'Entradas' : 'Saídas'} - VIRTUDE BIGBAG'S`, 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Gerado em: ${new Date().toLocaleString()}`, 14, 22);
-
-    autoTable(doc, {
-      head: [headers],
-      body: rows,
-      startY: 25,
-      theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246] },
-      styles: { fontSize: 8 }
-    });
-
-    doc.save(`Relatorio_${type}_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
-  // States for Data
-  const [produtos, setProdutos] = useState([]);
-  const [fornecedores, setFornecedores] = useState([]);
-  const [galpoes, setGalpoes] = useState([]);
-  const [funcionarios, setFuncionarios] = useState([]);
-  const [movimentacoes, setMovimentacoes] = useState([]);
-  const [movimentacoesInternas, setMovimentacoesInternas] = useState([]);
-
-  // Helper para fetch com credenciais e tratamento de erro global
-  const apiFetch = async (url: string, options: RequestInit = {}) => {
-    const defaultOptions: RequestInit = {
-      credentials: 'include',
-      ...options,
-      headers: {
-        ...(options.headers || {}),
-      },
-    };
-
-    const response = await fetch(url, defaultOptions);
-    
-    if (response.status === 401) {
-      if (isLoggedIn) {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        // alert('Sessão expirada. Por favor, faça login novamente.');
-      }
-      return response;
-    }
-    
-    return response;
-  };
-
-  // Fetch Data on Load
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await apiFetch('/api/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success) {
-            setUserRole(data.user.nivel);
-            setCurrentUser(data.user);
-            setIsLoggedIn(true);
-          }
-        }
-      } catch (e) {}
-    };
-    checkSession();
-  }, []);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchData();
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    if (activeTab === 'entradas' || activeTab === 'saidas') {
-      setActiveTab('internas');
-    }
-  }, [activeTab]);
-
-  const fetchData = async () => {
-    try {
-      const [prodRes, fornRes, galpRes, funcRes, movRes, movIntRes] = await Promise.all([
-        apiFetch('/api/produtos'),
-        apiFetch('/api/fornecedores'),
-        apiFetch('/api/galpoes'),
-        apiFetch('/api/funcionarios'),
-        apiFetch('/api/movimentacoes'),
-        apiFetch('/api/movimentacoes_internas')
-      ]);
-
-      const p = await prodRes.json();
-      const f = await fornRes.json();
-      const g = await galpRes.json();
-      const fu = await funcRes.json();
-      const m = await movRes.json();
-      const mi = await movIntRes.json();
-
-      if (Array.isArray(p)) setProdutos(p);
-      if (Array.isArray(f)) setFornecedores(f);
-      if (Array.isArray(g)) setGalpoes(g);
-      if (Array.isArray(fu)) setFuncionarios(fu);
-      if (Array.isArray(m)) setMovimentacoes(m);
-      if (Array.isArray(mi)) setMovimentacoesInternas(mi);
-    } catch (err) {
-      console.error('Erro ao buscar dados:', err);
-    }
-  };
-
   // UI States
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -580,31 +442,6 @@ export default function App() {
     nf: '',
     data: ''
   });
-
-  const handleLogin = async (username, password) => {
-    try {
-      const res = await apiFetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json();
-        alert(errorData.message || 'Erro ao fazer login. Verifique suas credenciais.');
-        return;
-      }
-
-      const data = await res.json();
-      if (data.success) {
-        setUserRole(data.user.nivel);
-        setCurrentUser(data.user);
-        setIsLoggedIn(true);
-      }
-    } catch (err) {
-      alert('Erro de conexão com o servidor. Verifique se o banco de dados local está rodando.');
-    }
-  };
 
   const handleFilterChange = (name, value) => {
     setFilters(prev => ({ ...prev, [name]: value }));
@@ -624,173 +461,202 @@ export default function App() {
 
   const openAddModal = () => {
     setEditingItem(null);
-    setFormData({ codigoPrefix: '', codigoSuffix: '' });
+    const initialData: any = { codigoPrefix: '', codigoSuffix: '' };
+    if (activeTab === 'entradas') initialData.tipoMov = 'entrada';
+    if (activeTab === 'saidas') initialData.tipoMov = 'saida';
+    setFormData(initialData);
     setShowModal(true);
+  };
+
+  const openEditModal = (item) => {
+    setEditingItem(item);
+    setFormData({ ...item });
+    setShowModal(true);
+  };
+
+  // States for Data
+  const [produtos, setProdutos] = useState(INITIAL_PRODUTOS);
+  const [fornecedores, setFornecedores] = useState(INITIAL_FORNECEDORES);
+  const [galpoes, setGalpoes] = useState(INITIAL_GALPOES);
+  const [funcionarios, setFuncionarios] = useState(INITIAL_FUNCIONARIOS);
+  const [movimentacoes, setMovimentacoes] = useState(INITIAL_MOVIMENTACOES);
+  const [movimentacoesInternas, setMovimentacoesInternas] = useState(INITIAL_MOVIMENTACOES_INTERNAS);
+
+  // Helper para fetch com credenciais e tratamento de erro global
+  const apiFetch = async (url: string, options: RequestInit = {}) => {
+    const defaultOptions: RequestInit = {
+      credentials: 'include',
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    };
+
+    const response = await fetch(url, defaultOptions);
+    
+    if (response.status === 401 && isLoggedIn) {
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+    }
+    
+    return response;
+  };
+
+  const fetchData = async () => {
+    // No-op in preview mode
+    console.log('FetchData called (Preview Mode)');
+  };
+
+  useEffect(() => {
+    const checkSession = async () => {
+      // In preview mode, we can just check if there's a user in state or skip
+    };
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchData();
+    }
+  }, [isLoggedIn]);
+
+  const handleLogin = async (username, password) => {
+    const user = funcionarios.find(f => (f.email === username || f.nome === username) && f.senha === password);
+    if (user) {
+      setUserRole(user.nivel);
+      setCurrentUser(user);
+      setIsLoggedIn(true);
+    } else {
+      alert('Usuário ou senha incorretos.');
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Tem certeza que deseja excluir este registro?')) return;
+    
+    if (activeTab === 'estoque' || activeTab === 'produtos') setProdutos(prev => prev.filter(p => p.id !== id));
+    else if (activeTab === 'fornecedores') setFornecedores(prev => prev.filter(f => f.id !== id));
+    else if (activeTab === 'galpoes') setGalpoes(prev => prev.filter(g => g.id !== id));
+    else if (activeTab === 'funcionarios') setFuncionarios(prev => prev.filter(f => f.id !== id));
+    else if (activeTab === 'internas') setMovimentacoesInternas(prev => prev.filter(m => m.id !== id));
+    else if (activeTab === 'entradas' || activeTab === 'saidas' || activeTab === 'devolucoes') setMovimentacoes(prev => prev.filter(m => m.id !== id));
   };
 
   const handleSave = async () => {
     const timestamp = new Date().toLocaleString();
-    const method = editingItem ? 'PUT' : 'POST';
-    let tabForUrl = activeTab;
-    if (activeTab === 'estoque') tabForUrl = 'produtos';
-    
-    let url = editingItem ? `/api/${tabForUrl}/${editingItem.id}` : `/api/${tabForUrl}`;
-    
-    // Unified movement logic
-    if (activeTab === 'internas' || activeTab === 'entradas' || activeTab === 'saidas') {
+    let endpoint = '';
+    let payload = { ...formData };
+    let prod = null;
+
+    if (activeTab === 'produtos' || activeTab === 'estoque') {
+      endpoint = 'produtos';
+      const finalCodigo = formData.codigoPrefix && formData.codigoSuffix 
+        ? `${formData.codigoPrefix}-${formData.codigoSuffix}` 
+        : formData.codigo;
+      payload = { ...payload, codigo: finalCodigo };
+    } else if (activeTab === 'fornecedores') endpoint = 'fornecedores';
+    else if (activeTab === 'galpoes') endpoint = 'galpoes';
+    else if (activeTab === 'funcionarios') endpoint = 'funcionarios';
+    else if (activeTab === 'internas' || activeTab === 'entradas' || activeTab === 'saidas' || activeTab === 'devolucoes') {
+      prod = produtos.find(p => p.id === parseInt(formData.produtoId));
+      if (!prod) return;
       const isInternal = formData.tipoMov === 'Produção' || formData.tipoMov === 'Transferência';
-      url = isInternal 
-        ? (editingItem ? `/api/movimentacoes_internas/${editingItem.id}` : '/api/movimentacoes_internas')
-        : (editingItem ? `/api/movimentacoes/${editingItem.id}` : '/api/movimentacoes');
+      endpoint = isInternal ? 'movimentacoes_internas' : 'movimentacoes';
+      
+      const valorUnit = (formData.tipoMov === 'entrada' || formData.tipoMov === 'devolucao') ? (parseFloat(formData.valorUnit) || 0) : (prod.valorUnit || 0);
+      payload = {
+        ...formData,
+        data: editingItem ? editingItem.data : timestamp,
+        codigo: prod.codigo,
+        produto: prod.descricao,
+        tipo: formData.tipoMov,
+        valorUnit,
+        valorTotal: valorUnit * parseInt(formData.quantidade),
+        fornecedor: fornecedores.find(f => f.id === prod.fornecedorId)?.nome || 'N/A',
+        responsavel: formData.responsavel || currentUser?.nome || 'Admin'
+      };
     }
 
-    try {
-      let response;
-      if (activeTab === 'produtos' || activeTab === 'estoque') {
-        if (!formData.descricao || !formData.tipo) {
-          alert('Por favor, preencha a descrição e o tipo do produto.');
-          return;
-        }
+    if (endpoint) {
+      const isEdit = !!editingItem;
+      const newId = isEdit ? editingItem.id : Date.now();
+      const finalPayload = { ...payload, id: newId };
 
-        const finalCodigo = formData.codigoPrefix && formData.codigoSuffix 
-          ? `${formData.codigoPrefix}-${formData.codigoSuffix}` 
-          : formData.codigo;
+      if (endpoint === 'produtos') {
+        setProdutos(prev => isEdit ? prev.map(p => p.id === newId ? finalPayload : p) : [...prev, finalPayload]);
+      } else if (endpoint === 'fornecedores') {
+        setFornecedores(prev => isEdit ? prev.map(f => f.id === newId ? finalPayload : f) : [...prev, finalPayload]);
+      } else if (endpoint === 'galpoes') {
+        setGalpoes(prev => isEdit ? prev.map(g => g.id === newId ? finalPayload : g) : [...prev, finalPayload]);
+      } else if (endpoint === 'funcionarios') {
+        setFuncionarios(prev => isEdit ? prev.map(f => f.id === newId ? finalPayload : f) : [...prev, finalPayload]);
+      } else if (endpoint === 'movimentacoes') {
+        setMovimentacoes(prev => isEdit ? prev.map(m => m.id === newId ? finalPayload : m) : [...prev, finalPayload]);
+      } else if (endpoint === 'movimentacoes_internas') {
+        setMovimentacoesInternas(prev => isEdit ? prev.map(m => m.id === newId ? finalPayload : m) : [...prev, finalPayload]);
+      }
+
+      // Update product stock if it's a movement
+      if (prod) {
+        const isEntry = formData.tipoMov === 'entrada' || formData.tipoMov === 'devolucao';
+        const isExit = formData.tipoMov === 'saida' || formData.tipoMov === 'Produção' || formData.tipoMov === 'Transferência';
         
-        const productData = { 
-          codigo: finalCodigo,
-          descricao: formData.descricao,
-          tipo: formData.tipo,
-          fornecedorId: formData.fornecedorId ? Number(formData.fornecedorId) : null,
-          galpaoId: formData.galpaoId ? Number(formData.galpaoId) : null,
-          min: Number(formData.min) || 0,
-          pesoUnit: parseFloat(formData.pesoUnit) || 0,
-          valorUnit: parseFloat(formData.valorUnit) || 0
-        };
+        let newStock = prod.estoque;
+        if (isEntry) newStock += parseInt(formData.quantidade);
+        if (isExit) newStock -= parseInt(formData.quantidade);
 
-        response = await apiFetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(productData)
-        });
-      } else if (activeTab === 'fornecedores' || activeTab === 'funcionarios' || activeTab === 'galpoes') {
-        if (activeTab === 'fornecedores' && !formData.nome) {
-          alert('Por favor, informe o nome do fornecedor.');
-          return;
-        }
-        if (activeTab === 'funcionarios' && (!formData.nome || (!editingItem && !formData.senha))) {
-          alert('Por favor, informe o nome e a senha do funcionário.');
-          return;
-        }
-        if (activeTab === 'galpoes' && !formData.nome) {
-          alert('Por favor, informe o nome do galpão.');
-          return;
-        }
-
-        // Clean up formData for these types if needed, but for now just send
-        const cleanData = { ...formData };
-        if (activeTab === 'funcionarios') {
-          delete cleanData.nivel; // We use nivel_acesso in backend or map it
-          cleanData.nivel = formData.nivel; // Ensure it's there if needed
-        }
-
-        response = await apiFetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(cleanData)
-        });
-      } else if (activeTab === 'internas' || activeTab === 'entradas' || activeTab === 'saidas') {
-        if (!formData.produtoId || !formData.quantidade || !formData.tipoMov) {
-          alert('Por favor, preencha o produto, quantidade e tipo de movimentação.');
-          return;
-        }
-        const prod = produtos.find(p => p.id === parseInt(formData.produtoId));
-        if (!prod) return;
-
-        const qtd = parseInt(formData.quantidade);
-        const tipo = formData.tipoMov;
-        const isInternal = tipo === 'Produção' || tipo === 'Transferência';
-
-        if (tipo !== 'entrada' && !editingItem && prod.estoque < qtd) {
-          alert(`Estoque insuficiente! Saldo atual: ${prod.estoque}`);
-          return;
-        }
-
-        let payload;
-        if (isInternal) {
-          payload = {
-            data: timestamp,
-            codigo: prod.codigo,
-            produto: prod.descricao,
-            tipo: tipo,
-            qtd: qtd,
-            peso: parseFloat(formData.peso) || 0,
-            responsavel: formData.responsavel || currentUser?.nome || 'Admin',
-            destino: formData.destino || (tipo === 'Produção' ? 'Linha de Produção' : 'Outro Galpão'),
-            valorUnit: prod.valorUnit || 0,
-            valorTotal: (prod.valorUnit || 0) * qtd,
-            produtoId: prod.id
-          };
-        } else {
-          const valorUnit = tipo === 'entrada' ? (parseFloat(formData.valorUnit) || 0) : (prod.valorUnit || 0);
-          payload = {
-            data: editingItem ? editingItem.data : timestamp,
-            codigo: prod.codigo,
-            produto: prod.descricao,
-            fornecedor: fornecedores.find(f => f.id === prod.fornecedorId)?.nome || 'N/A',
-            tipo: tipo,
-            qtd: qtd,
-            peso: parseFloat(formData.peso) || 0,
-            nf: formData.nf || 'N/A',
-            responsavel: formData.responsavel || currentUser?.nome || 'Admin',
-            valorUnit: valorUnit,
-            valorTotal: valorUnit * qtd,
-            produtoId: prod.id
-          };
-        }
-
-        response = await apiFetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      }
-      
-      if (response && !response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Erro ao salvar dados');
+        setProdutos(prev => prev.map(p => p.id === prod.id ? { ...p, estoque: newStock } : p));
       }
 
-      await fetchData();
       setShowModal(false);
-    } catch (err) {
-      alert(err.message || 'Erro ao salvar dados');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.')) return;
-    
-    let tabForUrl = activeTab;
-    if (activeTab === 'estoque') tabForUrl = 'produtos';
+  const exportToExcel = (type) => {
+    const data = (type === 'internas' ? movimentacoesInternas : movimentacoes)
+      .filter(m => {
+        if (type === 'internas') return true;
+        if (type === 'devolucoes') return m.tipo === 'devolucao';
+        return m.tipo === type;
+      })
+      .map(m => ({
+        Data: m.data,
+        Código: m.codigo,
+        Produto: m.produto,
+        Fornecedor: m.fornecedor,
+        Quantidade: m.qtd,
+        Peso: m.peso,
+        NF: m.nf,
+        Responsável: m.responsavel,
+        'Valor Unitário': m.valorUnit,
+        'Valor Total': m.valorTotal
+      }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Relatorio');
+    XLSX.writeFile(wb, `Relatorio_${type}.xlsx`);
+  };
 
-    let url = `/api/${tabForUrl}/${id}`;
-    if (activeTab === 'entradas' || activeTab === 'saidas') {
-      url = `/api/movimentacoes/${id}`;
-    }
-    if (activeTab === 'internas') {
-      url = `/api/movimentacoes_internas/${id}`;
-    }
-
-    try {
-      const res = await apiFetch(url, { method: 'DELETE' });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || errorData.error || 'Erro ao excluir');
-      }
-      await fetchData();
-    } catch (err) {
-      alert(err.message || 'Erro ao excluir registro');
-    }
+  const exportToPDF = (type) => {
+    const doc = new jsPDF('l');
+    const data = (type === 'internas' ? movimentacoesInternas : movimentacoes)
+      .filter(m => {
+        if (type === 'internas') return true;
+        if (type === 'devolucoes') return m.tipo === 'devolucao';
+        return m.tipo === type;
+      });
+    const rows = data.map(m => [m.data, m.codigo, m.produto, m.qtd, m.responsavel, m.valorTotal]);
+    autoTable(doc, {
+      head: [['Data', 'Código', 'Produto', 'Qtd', 'Responsável', 'Total']],
+      body: rows,
+    });
+    doc.save(`Relatorio_${type}.pdf`);
   };
 
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
@@ -798,128 +664,197 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <aside className="w-72 bg-slate-900 text-white flex flex-col p-6 fixed h-full z-20">
-        <div className="flex items-center mb-10 px-2">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3">
+      <aside className="w-64 bg-slate-900 text-white p-6 hidden lg:flex flex-col">
+        <div className="flex items-center space-x-3 mb-10">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/40">
             <Warehouse className="w-6 h-6 text-white" />
           </div>
-          <div>
-            <h2 className="font-bold text-lg leading-tight">VIRTUDE BIGBAG'S</h2>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Virtude v1.0</p>
-          </div>
+          <span className="font-bold text-xl tracking-tight">VIRTUDE</span>
         </div>
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-4">Menu Principal</p>
+        
+        <nav className="flex-1">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <SidebarItem icon={Package} label="Produtos" active={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')} />
+          <SidebarItem icon={Package} label="Estoque Atual" active={activeTab === 'estoque'} onClick={() => setActiveTab('estoque')} />
+          
+          <div className="mt-8 mb-4 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Movimentações</div>
+          <SidebarItem icon={ArrowDownCircle} label="Entradas" active={activeTab === 'entradas'} onClick={() => setActiveTab('entradas')} />
+          <SidebarItem icon={ArrowUpCircle} label="Saídas" active={activeTab === 'saidas'} onClick={() => setActiveTab('saidas')} />
+          <SidebarItem icon={RotateCcw} label="Devoluções" active={activeTab === 'devolucoes'} onClick={() => setActiveTab('devolucoes')} />
+          <SidebarItem icon={ClipboardList} label="Internas / Produção" active={activeTab === 'internas'} onClick={() => setActiveTab('internas')} />
+          
+          <div className="mt-8 mb-4 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cadastros</div>
           <SidebarItem icon={Truck} label="Fornecedores" active={activeTab === 'fornecedores'} onClick={() => setActiveTab('fornecedores')} />
-          <SidebarItem icon={Users} label="Funcionários" active={activeTab === 'funcionarios'} onClick={() => setActiveTab('funcionarios')} />
           <SidebarItem icon={Warehouse} label="Galpões" active={activeTab === 'galpoes'} onClick={() => setActiveTab('galpoes')} />
+          {userRole === 'admin' && (
+            <SidebarItem icon={Users} label="Funcionários" active={activeTab === 'funcionarios'} onClick={() => setActiveTab('funcionarios')} />
+          )}
+        </nav>
 
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-8 mb-4 px-4">Logística</p>
-          <SidebarItem icon={TrendingUp} label="Movimentações" active={activeTab === 'internas'} onClick={() => setActiveTab('internas')} />
-          <SidebarItem icon={ClipboardList} label="Estoque" active={activeTab === 'estoque'} onClick={() => setActiveTab('estoque')} 
-            badge={produtos.filter(p => p.estoque < p.min).length || null} 
-          />
-          <SidebarItem icon={FileText} label="Relatórios" active={activeTab === 'relatorios'} onClick={() => setActiveTab('relatorios')} />
-        </div>
-
-        <div className="mt-auto pt-6 border-t border-slate-800 space-y-2">
-          <div className="px-4 py-2 bg-slate-800/50 rounded-lg">
-            <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Perfil Atual</p>
-            <select 
-              className="w-full bg-transparent text-xs font-bold text-blue-400 outline-none"
-              value={userRole}
-              onChange={e => setUserRole(e.target.value)}
-            >
-              <option value="admin" className="bg-slate-900">Administrador</option>
-              <option value="funcionario" className="bg-slate-900">Funcionário</option>
-            </select>
+        <div className="mt-auto pt-6 border-t border-slate-800">
+          <div className="flex items-center space-x-3 mb-6 px-2">
+            <div className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold">{currentUser?.nome?.[0]}</div>
+            <div className="overflow-hidden">
+              <p className="text-sm font-bold truncate">{currentUser?.nome}</p>
+              <p className="text-[10px] text-slate-500 uppercase">{userRole}</p>
+            </div>
           </div>
-          <button 
-            onClick={async () => {
-              try {
-                await apiFetch('/api/logout', { method: 'POST' });
-                setIsLoggedIn(false);
-                setCurrentUser(null);
-              } catch (e) {
-                setIsLoggedIn(false);
-              }
-            }} 
-            className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-          >
-            <LogOut className="w-5 h-5 mr-3" /> Sair
+          <button onClick={handleLogout} className="w-full flex items-center px-4 py-3 text-sm font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+            <LogOut className="w-5 h-5 mr-3" />
+            Sair do Sistema
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-72 p-10">
-        <header className="flex items-center justify-between mb-10">
+      <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
+        <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 capitalize">
-              {activeTab === 'internas' ? 'Histórico de Movimentações' : activeTab}
-            </h1>
-            <p className="text-slate-500 mt-1">Gestão industrial em tempo real.</p>
+            <h2 className="text-2xl font-bold text-slate-800 capitalize">{activeTab.replace('_', ' ')}</h2>
+            <p className="text-slate-500 text-sm">Bem-vindo ao painel de controle Virtude BigBag's</p>
           </div>
-          {activeTab !== 'dashboard' && (
-            <button onClick={openAddModal} className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all">
-              <Plus className="w-5 h-5 mr-2" />
-              {activeTab === 'entradas' || activeTab === 'saidas' || activeTab === 'internas' ? 'Registrar' : 'Novo Registro'}
-            </button>
-          )}
+          <div className="flex items-center space-x-3">
+            {['estoque', 'fornecedores', 'galpoes', 'funcionarios', 'internas', 'entradas', 'saidas', 'devolucoes'].includes(activeTab) && (
+              <button onClick={openAddModal} className="flex items-center px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all transform active:scale-95">
+                <Plus className="w-5 h-5 mr-2" />
+                Novo Registro
+              </button>
+            )}
+          </div>
         </header>
 
         <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
-            
+          <motion.div key={activeTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
             {activeTab === 'dashboard' && <Dashboard produtos={produtos} movimentacoes={movimentacoes} movimentacoesInternas={movimentacoesInternas} />}
-
-            {activeTab === 'produtos' && (
+            
+            {activeTab === 'estoque' && (
               <>
                 <FilterBar 
-                  fields={['codigo', 'descricao', 'tipo', 'fornecedor']} 
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  onClear={clearFilters}
+                  fields={['codigo', 'descricao', 'tipo']} 
+                  filters={filters} 
+                  onFilterChange={handleFilterChange} 
+                  onClear={clearFilters} 
+                  activeTab={activeTab} 
                   fornecedores={fornecedores}
                   funcionarios={funcionarios}
-                  activeTab={activeTab}
                 />
-                <GenericTable 
-                  headers={['Código', 'Descrição', 'Tipo', 'Estoque']}
-                  data={produtos.filter(p => {
-                    const matchCodigo = p.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
-                    const matchDesc = p.descricao.toLowerCase().includes(filters.descricao.toLowerCase());
-                    const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
-                    const matchForn = filters.fornecedor ? fornecedores.find(f => f.id === p.fornecedorId)?.nome === filters.fornecedor : true;
-                    return matchCodigo && matchDesc && matchTipo && matchForn;
-                  })}
-                  onDelete={handleDelete}
-                  onEdit={(item) => { 
-                    if (item.codigo && item.codigo.includes('-')) {
-                      const [prefix, suffix] = item.codigo.split('-');
-                      setFormData({ ...item, codigoPrefix: prefix, codigoSuffix: suffix });
-                    } else {
-                      setFormData(item);
-                    }
-                    setEditingItem(item); 
-                    setShowModal(true); 
-                  }}
-                  renderRow={(p) => (
-                  <>
-                    <td className="px-6 py-4 font-mono text-blue-600">{p.codigo}</td>
-                    <td className="px-6 py-4 font-medium">{p.descricao}</td>
-                    <td className="px-6 py-4 text-slate-500">{p.tipo}</td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${p.estoque < p.min ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                        {p.estoque}
-                      </span>
-                    </td>
-                  </>
+                <div className="flex justify-end mb-4 space-x-2">
+                  <button onClick={() => setEstoqueViewMode('grid')} className={`p-2 rounded-lg ${estoqueViewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-slate-400'}`}><LayoutGrid className="w-5 h-5" /></button>
+                  <button onClick={() => setEstoqueViewMode('list')} className={`p-2 rounded-lg ${estoqueViewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-slate-400'}`}><List className="w-5 h-5" /></button>
+                </div>
+                {estoqueViewMode === 'list' ? (
+                  <GenericTable 
+                    headers={['Código', 'Descrição', 'Tipo', 'Estoque', 'Mínimo', 'Peso Unit', 'Valor Unit']}
+                    data={produtos.filter(p => p.codigo.includes(filters.codigo) && p.descricao.toLowerCase().includes(filters.descricao.toLowerCase()))}
+                    onEdit={openEditModal}
+                    onDelete={handleDelete}
+                    renderRow={(p) => (
+                      <>
+                        <td className="px-6 py-4 font-bold text-blue-600">{p.codigo}</td>
+                        <td className="px-6 py-4 text-slate-600">{p.descricao}</td>
+                        <td className="px-6 py-4"><span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-xs">{p.tipo}</span></td>
+                        <td className="px-6 py-4"><span className={`font-bold ${p.estoque <= p.min ? 'text-red-500' : 'text-slate-900'}`}>{p.estoque}</span></td>
+                        <td className="px-6 py-4 text-slate-400">{p.min}</td>
+                        <td className="px-6 py-4 text-slate-600">{p.pesoUnit}kg</td>
+                        <td className="px-6 py-4 text-slate-600">R$ {p.valorUnit?.toFixed(2)}</td>
+                      </>
+                    )}
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {produtos.filter(p => p.codigo.includes(filters.codigo) && p.descricao.toLowerCase().includes(filters.descricao.toLowerCase())).map(p => (
+                      <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">{p.codigo.slice(-2)}</div>
+                          <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openEditModal(p)} className="p-2 text-slate-400 hover:text-blue-600"><Pencil className="w-4 h-4" /></button>
+                            <button onClick={() => handleDelete(p.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </div>
+                        <h4 className="font-bold text-slate-800 mb-1">{p.descricao}</h4>
+                        <p className="text-xs text-slate-400 mb-4">{p.codigo} • {p.tipo}</p>
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                          <div>
+                            <p className="text-[10px] text-slate-400 uppercase font-bold">Estoque</p>
+                            <p className={`text-xl font-bold ${p.estoque <= p.min ? 'text-red-500' : 'text-slate-900'}`}>{p.estoque}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 uppercase font-bold">Valor Unit</p>
+                            <p className="text-sm font-bold text-slate-600">R$ {p.valorUnit?.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              />
+              </>
+            )}
+
+            {(activeTab === 'entradas' || activeTab === 'saidas' || activeTab === 'devolucoes') && (
+              <>
+                <FilterBar 
+                  fields={['data', 'codigo', 'descricao', 'fornecedor', 'nf', 'responsavel']} 
+                  filters={filters} 
+                  onFilterChange={handleFilterChange} 
+                  onClear={clearFilters} 
+                  activeTab={activeTab} 
+                  fornecedores={fornecedores}
+                  funcionarios={funcionarios}
+                />
+                <div className="flex space-x-4 mb-6">
+                  <button onClick={() => exportToExcel(activeTab)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold"><Download className="w-4 h-4 mr-2" /> Excel</button>
+                  <button onClick={() => exportToPDF(activeTab)} className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold"><FileText className="w-4 h-4 mr-2" /> PDF</button>
+                </div>
+                <GenericTable 
+                  headers={['Data', 'Código', 'Produto', 'Fornecedor', 'Qtd', 'Peso', 'NF', 'Responsável']}
+                  data={movimentacoes.filter(m => (activeTab === 'devolucoes' ? m.tipo === 'devolucao' : m.tipo === activeTab) && 
+                    m.codigo.includes(filters.codigo) && 
+                    m.produto.toLowerCase().includes(filters.descricao.toLowerCase()) &&
+                    (filters.fornecedor === '' || m.fornecedor === filters.fornecedor) &&
+                    m.nf.includes(filters.nf) &&
+                    (filters.responsavel === '' || m.responsavel === filters.responsavel) &&
+                    (filters.data === '' || m.data.includes(filters.data.split('-').reverse().join('/')))
+                  )}
+                  onEdit={openEditModal}
+                  onDelete={handleDelete}
+                  renderRow={(m) => (
+                    <>
+                      <td className="px-6 py-4 text-xs text-slate-500">{m.data}</td>
+                      <td className="px-6 py-4 font-bold text-slate-700">{m.codigo}</td>
+                      <td className="px-6 py-4 text-slate-600">{m.produto}</td>
+                      <td className="px-6 py-4 text-slate-600">{m.fornecedor}</td>
+                      <td className="px-6 py-4 font-bold">{m.qtd}</td>
+                      <td className="px-6 py-4 text-slate-500">{m.peso}kg</td>
+                      <td className="px-6 py-4 text-slate-500">{m.nf}</td>
+                      <td className="px-6 py-4 text-slate-600">{m.responsavel}</td>
+                    </>
+                  )}
+                />
+              </>
+            )}
+
+            {activeTab === 'internas' && (
+              <>
+                <div className="flex space-x-4 mb-6">
+                  <button onClick={() => exportToExcel('internas')} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-bold"><Download className="w-4 h-4 mr-2" /> Excel</button>
+                  <button onClick={() => exportToPDF('internas')} className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold"><FileText className="w-4 h-4 mr-2" /> PDF</button>
+                </div>
+                <GenericTable 
+                  headers={['Data', 'Código', 'Produto', 'Tipo', 'Qtd', 'Responsável', 'Destino']}
+                  data={movimentacoesInternas}
+                  onEdit={openEditModal}
+                  onDelete={handleDelete}
+                  renderRow={(m) => (
+                    <>
+                      <td className="px-6 py-4 text-xs text-slate-500">{m.data}</td>
+                      <td className="px-6 py-4 font-bold text-slate-700">{m.codigo}</td>
+                      <td className="px-6 py-4 text-slate-600">{m.produto}</td>
+                      <td className="px-6 py-4"><span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${m.tipo === 'Produção' ? 'bg-purple-100 text-purple-600' : 'bg-amber-100 text-amber-600'}`}>{m.tipo}</span></td>
+                      <td className="px-6 py-4 font-bold">{m.qtd}</td>
+                      <td className="px-6 py-4 text-slate-600">{m.responsavel}</td>
+                      <td className="px-6 py-4 text-slate-500">{m.destino}</td>
+                    </>
+                  )}
+                />
               </>
             )}
 
@@ -927,32 +862,13 @@ export default function App() {
               <GenericTable 
                 headers={['Nome', 'Telefone', 'Email']}
                 data={fornecedores}
+                onEdit={openEditModal}
                 onDelete={handleDelete}
-                onEdit={(item) => { setEditingItem(item); setFormData(item); setShowModal(true); }}
                 renderRow={(f) => (
                   <>
-                    <td className="px-6 py-4 font-bold">{f.nome}</td>
-                    <td className="px-6 py-4">{f.telefone}</td>
-                    <td className="px-6 py-4 text-blue-600">{f.email}</td>
-                  </>
-                )}
-              />
-            )}
-
-            {activeTab === 'funcionarios' && (
-              <GenericTable 
-                headers={['Registro', 'Nome', 'Função', 'Nível']}
-                data={funcionarios}
-                onDelete={handleDelete}
-                onEdit={(item) => { setEditingItem(item); setFormData(item); setShowModal(true); }}
-                renderRow={(f) => (
-                  <>
-                    <td className="px-6 py-4 font-mono text-blue-600">{f.registro}</td>
-                    <td className="px-6 py-4 font-bold">{f.nome}</td>
-                    <td className="px-6 py-4">{f.funcao}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-xs font-bold uppercase">{f.nivel}</span>
-                    </td>
+                    <td className="px-6 py-4 font-bold text-slate-800">{f.nome}</td>
+                    <td className="px-6 py-4 text-slate-600">{f.telefone}</td>
+                    <td className="px-6 py-4 text-slate-600">{f.email}</td>
                   </>
                 )}
               />
@@ -962,557 +878,172 @@ export default function App() {
               <GenericTable 
                 headers={['Nome', 'Descrição']}
                 data={galpoes}
+                onEdit={openEditModal}
                 onDelete={handleDelete}
-                onEdit={(item) => { setEditingItem(item); setFormData(item); setShowModal(true); }}
                 renderRow={(g) => (
                   <>
-                    <td className="px-6 py-4 font-bold">{g.nome}</td>
-                    <td className="px-6 py-4 text-slate-500">{g.descricao}</td>
+                    <td className="px-6 py-4 font-bold text-slate-800">{g.nome}</td>
+                    <td className="px-6 py-4 text-slate-600">{g.descricao}</td>
                   </>
                 )}
               />
             )}
 
-            {(activeTab === 'entradas' || activeTab === 'saidas') && (
-              <>
-                <FilterBar 
-                  fields={['data', 'codigo', 'nf', 'responsavel', 'fornecedor']} 
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  onClear={clearFilters}
-                  fornecedores={fornecedores}
-                  funcionarios={funcionarios}
-                  activeTab={activeTab}
-                />
-                <GenericTable 
-                  headers={[
-                    'Data', 'Código', 'Descrição', 'Fornecedor', 'Qtd', 'Peso', 'NF', 'Responsável',
-                    ...(userRole === 'admin' ? ['V. Unit', 'V. Total'] : [])
-                  ]}
-                  data={movimentacoes.filter(m => {
-                    const matchTipoMov = m.tipo === (activeTab === 'entradas' ? 'entrada' : 'saida');
-                    const matchData = filters.data ? m.data.includes(filters.data.split('-').reverse().join('/')) : true;
-                    const matchCodigo = m.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
-                    const matchNF = m.nf.toLowerCase().includes(filters.nf.toLowerCase());
-                    const matchResp = filters.responsavel ? m.responsavel === filters.responsavel : true;
-                    const matchForn = filters.fornecedor ? m.fornecedor === filters.fornecedor : true;
-                    return matchTipoMov && matchData && matchCodigo && matchNF && matchResp && matchForn;
-                  })}
-                  onDelete={handleDelete} 
-                  onEdit={(item) => { 
-                    setEditingItem(item); 
-                    setFormData({
-                      ...item,
-                      quantidade: item.qtd,
-                      produtoId: item.produtoId?.toString() || ''
-                    }); 
-                    setShowModal(true); 
-                  }}
-                renderRow={(m) => (
+            {activeTab === 'funcionarios' && (
+              <GenericTable 
+                headers={['Nome', 'Email', 'Registro', 'Função', 'Nível']}
+                data={funcionarios}
+                onEdit={openEditModal}
+                onDelete={handleDelete}
+                renderRow={(f) => (
                   <>
-                    <td className="px-6 py-4 text-slate-500 text-xs">{m.data}</td>
-                    <td className="px-6 py-4 font-mono text-blue-600 text-xs">{m.codigo}</td>
-                    <td className="px-6 py-4 font-bold text-xs">{m.produto}</td>
-                    <td className="px-6 py-4 text-xs">{m.fornecedor}</td>
-                    <td className={`px-6 py-4 text-center font-bold text-xs ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                      {m.tipo === 'entrada' ? '+' : '-'}{m.qtd}
-                    </td>
-                    <td className="px-6 py-4 text-xs">{Number(m.peso).toFixed(3)} kg</td>
-                    <td className="px-6 py-4 text-xs">{m.nf}</td>
-                    <td className="px-6 py-4 text-xs">{m.responsavel}</td>
-                    {userRole === 'admin' && (
-                      <>
-                        <td className="px-6 py-4 text-xs font-mono">R$ {Number(m.valorUnit || 0).toFixed(3)}</td>
-                        <td className="px-6 py-4 text-xs font-mono font-bold">R$ {Number(m.valorTotal || 0).toFixed(3)}</td>
-                      </>
-                    )}
+                    <td className="px-6 py-4 font-bold text-slate-800">{f.nome}</td>
+                    <td className="px-6 py-4 text-slate-600">{f.email}</td>
+                    <td className="px-6 py-4 text-slate-600">{f.registro}</td>
+                    <td className="px-6 py-4 text-slate-600">{f.funcao}</td>
+                    <td className="px-6 py-4"><span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${f.nivel === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{f.nivel}</span></td>
                   </>
                 )}
               />
-              </>
-            )}
-
-            {activeTab === 'estoque' && (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <FilterBar 
-                    fields={['codigo', 'descricao', 'tipo']} 
-                    filters={filters}
-                    onFilterChange={handleFilterChange}
-                    onClear={clearFilters}
-                    fornecedores={fornecedores}
-                    funcionarios={funcionarios}
-                    activeTab={activeTab}
-                  />
-                  <div className="flex bg-white border border-slate-100 p-1 rounded-xl shadow-sm ml-4">
-                    <button 
-                      onClick={() => setEstoqueViewMode('grid')}
-                      className={`p-2 rounded-lg transition-all ${estoqueViewMode === 'grid' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-                      title="Visualização em Blocos"
-                    >
-                      <LayoutGrid className="w-5 h-5" />
-                    </button>
-                    <button 
-                      onClick={() => setEstoqueViewMode('list')}
-                      className={`p-2 rounded-lg transition-all ${estoqueViewMode === 'list' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-                      title="Visualização em Linhas"
-                    >
-                      <List className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {estoqueViewMode === 'grid' ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {produtos.filter(p => {
-                      const matchCodigo = p.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
-                      const matchDesc = p.descricao.toLowerCase().includes(filters.descricao.toLowerCase());
-                      const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
-                      return matchCodigo && matchDesc && matchTipo;
-                    }).map(p => {
-                      const productMovements = movimentacoes.filter(m => m.produtoId === p.id);
-                      const totalEntrada = productMovements.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
-                      const totalSaida = productMovements.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0);
-                      return { ...p, totalEntrada, totalSaida };
-                    }).map(p => (
-                    <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm relative group">
-                      <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { 
-                          if (p.codigo && p.codigo.includes('-')) {
-                            const [prefix, suffix] = p.codigo.split('-');
-                            setFormData({ ...p, codigoPrefix: prefix, codigoSuffix: suffix });
-                          } else {
-                            setFormData(p);
-                          }
-                          setEditingItem(p); 
-                          setShowModal(true); 
-                        }} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => {
-                          handleDelete(p.id);
-                        }} className="p-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.codigo}</p>
-                          <h4 className="font-bold text-slate-800">{p.descricao}</h4>
-                        </div>
-                        <div className={`p-2 rounded-lg ${p.estoque < p.min ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
-                          <Package className="w-5 h-5" />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="bg-green-50 p-3 rounded-xl border border-green-100">
-                          <p className="text-[10px] text-green-600 font-bold uppercase tracking-wider">Entradas</p>
-                          <p className="text-xl font-black text-green-700">{p.totalEntrada}</p>
-                        </div>
-                        <div className="bg-red-50 p-3 rounded-xl border border-red-100">
-                          <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider">Saídas</p>
-                          <p className="text-xl font-black text-red-700">{p.totalSaida}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-end justify-between border-t border-slate-50 pt-4">
-                        <div>
-                          <p className="text-xs text-slate-500">Saldo Atual</p>
-                          <p className="text-3xl font-black text-slate-900">{p.estoque}</p>
-                        </div>
-                        <div className="text-right">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${p.estoque < p.min ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {p.estoque < p.min ? 'Abaixo do Mínimo' : 'Estoque OK'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                ) : (
-                  <GenericTable 
-                    headers={['Código', 'Descrição', 'Tipo', 'Entradas', 'Saídas', 'Saldo Atual', 'Status']}
-                    data={produtos.filter(p => {
-                      const matchCodigo = p.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
-                      const matchDesc = p.descricao.toLowerCase().includes(filters.descricao.toLowerCase());
-                      const matchTipo = filters.tipo ? p.tipo === filters.tipo : true;
-                      return matchCodigo && matchDesc && matchTipo;
-                    }).map(p => {
-                      const productMovements = movimentacoes.filter(m => m.produtoId === p.id);
-                      const totalEntrada = productMovements.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + m.qtd, 0);
-                      const totalSaida = productMovements.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + m.qtd, 0);
-                      return { ...p, totalEntrada, totalSaida };
-                    })}
-                    onDelete={(id) => {
-                      handleDelete(id);
-                    }}
-                    onEdit={(item) => {
-                      if (item.codigo && item.codigo.includes('-')) {
-                        const [prefix, suffix] = item.codigo.split('-');
-                        setFormData({ ...item, codigoPrefix: prefix, codigoSuffix: suffix });
-                      } else {
-                        setFormData(item);
-                      }
-                      setEditingItem(item); 
-                      setShowModal(true);
-                    }}
-                    renderRow={(p) => (
-                      <>
-                        <td className="px-6 py-4 font-mono text-blue-600 text-xs">{p.codigo}</td>
-                        <td className="px-6 py-4 font-bold text-xs">{p.descricao}</td>
-                        <td className="px-6 py-4 text-xs text-slate-500">{p.tipo}</td>
-                        <td className="px-6 py-4 text-center font-bold text-green-600">{p.totalEntrada}</td>
-                        <td className="px-6 py-4 text-center font-bold text-red-600">{p.totalSaida}</td>
-                        <td className={`px-6 py-4 text-center font-black text-lg ${p.estoque < p.min ? 'text-red-600' : 'text-slate-900'}`}>
-                          {p.estoque}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${p.estoque < p.min ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                            {p.estoque < p.min ? 'Abaixo do Mínimo' : 'Estoque OK'}
-                          </span>
-                        </td>
-                      </>
-                    )}
-                  />
-                )}
-              </>
-            )}
-
-            {activeTab === 'internas' && (
-              <>
-                <FilterBar 
-                  fields={['data', 'codigo', 'tipo', 'responsavel']} 
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  onClear={clearFilters}
-                  fornecedores={fornecedores}
-                  funcionarios={funcionarios}
-                  activeTab={activeTab}
-                />
-                <GenericTable 
-                  headers={['Data', 'Código', 'Produto', 'Tipo', 'Qtd', 'Peso', 'Responsável', 'Origem/Destino']}
-                  data={[
-                    ...movimentacoes.map(m => ({ ...m, category: 'externa' })),
-                    ...movimentacoesInternas.map(m => ({ ...m, category: 'interna' }))
-                  ].sort((a, b) => {
-                    // Sort by date descending
-                    const dateA = new Date(a.data.split(',')[0].split('/').reverse().join('-') + ' ' + (a.data.split(',')[1] || '00:00:00')).getTime();
-                    const dateB = new Date(b.data.split(',')[0].split('/').reverse().join('-') + ' ' + (b.data.split(',')[1] || '00:00:00')).getTime();
-                    return dateB - dateA;
-                  }).filter(m => {
-                    const matchData = filters.data ? m.data.includes(filters.data.split('-').reverse().join('/')) : true;
-                    const matchCodigo = m.codigo.toLowerCase().includes(filters.codigo.toLowerCase());
-                    const matchResp = filters.responsavel ? m.responsavel === filters.responsavel : true;
-                    const matchTipo = filters.tipo ? m.tipo.toLowerCase() === filters.tipo.toLowerCase() : true;
-                    return matchData && matchCodigo && matchResp && matchTipo;
-                  })}
-                  onDelete={(id, item) => {
-                    const url = item.category === 'interna' ? `/api/movimentacoes_internas/${id}` : `/api/movimentacoes/${id}`;
-                    if (confirm('Tem certeza que deseja excluir este registro?')) {
-                      apiFetch(url, { method: 'DELETE' }).then(() => fetchData());
-                    }
-                  }}
-                  onEdit={(item) => { 
-                    setEditingItem(item); 
-                    const isInternal = item.category === 'interna';
-                    if (isInternal) {
-                      setFormData({ ...item, tipoInterno: item.tipo, quantidade: item.qtd }); 
-                      setActiveTab('internas');
-                    } else {
-                      setFormData({ ...item, quantidade: item.qtd });
-                      setActiveTab(item.tipo === 'entrada' ? 'entradas' : 'saidas');
-                    }
-                    setShowModal(true); 
-                  }}
-                  renderRow={(m) => (
-                    <>
-                      <td className="px-6 py-4 text-slate-500 text-xs">{m.data}</td>
-                      <td className="px-6 py-4 font-mono text-blue-600 text-xs">{m.codigo}</td>
-                      <td className="px-6 py-4 font-bold text-xs">{m.produto}</td>
-                      <td className="px-6 py-4 text-xs">
-                        <span className={`px-2 py-1 rounded-lg font-bold ${
-                          m.tipo === 'entrada' ? 'bg-green-100 text-green-700' : 
-                          m.tipo === 'saida' ? 'bg-red-100 text-red-700' :
-                          m.tipo === 'Produção' ? 'bg-purple-100 text-purple-700' : 
-                          'bg-amber-100 text-amber-700'
-                        }`}>
-                          {m.tipo}
-                        </span>
-                      </td>
-                      <td className={`px-6 py-4 text-center font-bold text-xs ${m.tipo === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                        {m.tipo === 'entrada' ? '+' : '-'}{m.qtd}
-                      </td>
-                      <td className="px-6 py-4 text-xs">{Number(m.peso).toFixed(3)} kg</td>
-                      <td className="px-6 py-4 text-xs">{m.responsavel}</td>
-                      <td className="px-6 py-4 text-xs font-medium">
-                        {m.category === 'externa' ? (m.tipo === 'entrada' ? `NF: ${m.nf}` : 'Expedição') : m.destino}
-                      </td>
-                    </>
-                  )}
-                />
-              </>
-            )}
-
-            {activeTab === 'relatorios' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                  <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mb-6">
-                    <ArrowDownCircle className="w-8 h-8 text-green-600" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-800 mb-2">Relatório de Entradas</h3>
-                  <p className="text-slate-500 mb-8 text-sm">Exporte todas as entradas de materiais com detalhes de fornecedor, NF e valores.</p>
-                  <div className="flex flex-col gap-3">
-                    <button 
-                      onClick={() => exportToExcel('entrada')}
-                      className="flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
-                    >
-                      <Download className="w-4 h-4 mr-2" /> Exportar Excel (.xlsx)
-                    </button>
-                    <button 
-                      onClick={() => exportToPDF('entrada')}
-                      className="flex items-center justify-center px-6 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all shadow-lg shadow-slate-800/20"
-                    >
-                      <FileText className="w-4 h-4 mr-2" /> Exportar PDF (.pdf)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                  <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6">
-                    <ArrowUpCircle className="w-8 h-8 text-red-600" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-800 mb-2">Relatório de Saídas</h3>
-                  <p className="text-slate-500 mb-8 text-sm">Exporte todas as saídas de materiais para controle de consumo e expedição.</p>
-                  <div className="flex flex-col gap-3">
-                    <button 
-                      onClick={() => exportToExcel('saida')}
-                      className="flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-600/20"
-                    >
-                      <Download className="w-4 h-4 mr-2" /> Exportar Excel (.xlsx)
-                    </button>
-                    <button 
-                      onClick={() => exportToPDF('saida')}
-                      className="flex items-center justify-center px-6 py-3 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-900 transition-all shadow-lg shadow-slate-800/20"
-                    >
-                      <FileText className="w-4 h-4 mr-2" /> Exportar PDF (.pdf)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm md:col-span-2">
-                  <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6">
-                    <ClipboardList className="w-8 h-8 text-amber-600" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-800 mb-2">Balanço de Estoque</h3>
-                  <p className="text-slate-500 mb-8 text-sm">Verifique a consistência entre as movimentações registradas e o saldo atual em estoque.</p>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-100">
-                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase">Produto</th>
-                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Entradas</th>
-                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Saídas Totais</th>
-                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Saldo Teórico</th>
-                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Saldo Atual</th>
-                          <th className="py-4 px-2 text-[10px] font-bold text-slate-400 uppercase text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {produtos.map(p => {
-                          const productMovs = movimentacoes.filter(m => m.produtoId === p.id);
-                          const productMovsInt = movimentacoesInternas.filter(m => m.produtoId === p.id);
-                          
-                          const totalEntrada = productMovs.filter(m => m.tipo === 'entrada').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
-                          const totalSaida = productMovs.filter(m => m.tipo === 'saida').reduce((acc, m) => acc + (Number(m.qtd) || 0), 0) + productMovsInt.reduce((acc, m) => acc + (Number(m.qtd) || 0), 0);
-                          
-                          const theoretical = totalEntrada - totalSaida;
-                          const diff = theoretical - p.estoque;
-                          
-                          return (
-                            <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                              <td className="py-4 px-2">
-                                <p className="text-xs font-bold text-slate-800">{p.descricao}</p>
-                                <p className="text-[10px] font-mono text-blue-600">{p.codigo}</p>
-                              </td>
-                              <td className="py-4 px-2 text-center text-xs font-bold text-green-600">{totalEntrada}</td>
-                              <td className="py-4 px-2 text-center text-xs font-bold text-red-600">{totalSaida}</td>
-                              <td className="py-4 px-2 text-center text-xs font-bold text-slate-700">{theoretical}</td>
-                              <td className="py-4 px-2 text-center text-xs font-black text-slate-900">{p.estoque}</td>
-                              <td className="py-4 px-2 text-center">
-                                {diff === 0 ? (
-                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-bold uppercase">Consistente</span>
-                                ) : (
-                                  <span className="px-2 py-1 bg-red-100 text-red-700 rounded-lg text-[10px] font-bold uppercase">Divergente ({diff})</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
             )}
           </motion.div>
         </AnimatePresence>
+      </main>
 
-        {/* Modals */}
-        {showModal && (
-          <Modal 
-            title={editingItem ? `Editar ${activeTab.slice(0,-1)}` : `Novo Registro em ${activeTab}`}
-            onClose={() => setShowModal(false)}
-            onSave={handleSave}
-          >
-            {activeTab === 'produtos' && (
-              <>
-                <div className="flex gap-2">
-                  <select 
-                    className="w-1/3 p-3 bg-slate-50 border rounded-xl font-bold text-blue-600"
-                    value={formData.codigoPrefix || ''}
-                    onChange={e => setFormData({...formData, codigoPrefix: e.target.value})}
-                  >
-                    <option value="">Prefixo</option>
-                    <option value="VT">VT (Tecido)</option>
-                    <option value="VF">VF (Fios, Linhas e Cardaços)</option>
-                    <option value="VL">VL (Liner)</option>
-                    <option value="VA">VA (Alças)</option>
-                    <option value="VD">VD (Diversos)</option>
-                  </select>
-                  <input 
-                    placeholder="Número (ex: 0048)" 
-                    className="flex-1 p-3 bg-slate-50 border rounded-xl" 
-                    value={formData.codigoSuffix || ''} 
-                    onChange={e => setFormData({...formData, codigoSuffix: e.target.value})} 
-                  />
+      {/* Modal */}
+      {showModal && (
+        <Modal 
+          title={editingItem ? 'Editar Registro' : 'Novo Registro'} 
+          onClose={() => setShowModal(false)}
+          onSave={handleSave}
+        >
+          {activeTab === 'estoque' || activeTab === 'produtos' ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 flex space-x-2">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Prefixo</label>
+                  <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.codigoPrefix} onChange={e => setFormData({...formData, codigoPrefix: e.target.value})} placeholder="Ex: VT" />
                 </div>
-                <input placeholder="Descrição" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} />
-                <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.tipo || ''} onChange={e => setFormData({...formData, tipo: e.target.value})}>
-                  <option value="">Tipo de Material</option>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Sufixo</label>
+                  <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.codigoSuffix} onChange={e => setFormData({...formData, codigoSuffix: e.target.value})} placeholder="Ex: 0048" />
+                </div>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Descrição</label>
+                <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tipo</label>
+                <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})}>
+                  <option value="">Selecione</option>
                   <option value="Bobina">Bobina</option>
                   <option value="Fardo">Fardo</option>
                   <option value="Caixa">Caixa</option>
-                  <option value="Pacote">Pacote</option>
-                  <option value="Rolo">Rolo</option>
+                  <option value="Pallet">Pallet</option>
                 </select>
-                <div className="grid grid-cols-2 gap-4">
-                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.fornecedorId || ''} onChange={e => setFormData({...formData, fornecedorId: e.target.value})}>
-                    <option value="">Selecionar Fornecedor</option>
-                    {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Estoque Inicial</label>
+                <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.estoque} onChange={e => setFormData({...formData, estoque: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Valor Unitário</label>
+                <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.valorUnit} onChange={e => setFormData({...formData, valorUnit: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Peso Unitário</label>
+                <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.pesoUnit} onChange={e => setFormData({...formData, pesoUnit: e.target.value})} />
+              </div>
+            </div>
+          ) : (activeTab === 'internas' || activeTab === 'entradas' || activeTab === 'saidas') ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Produto</label>
+                <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.produtoId} onChange={e => setFormData({...formData, produtoId: e.target.value})}>
+                  <option value="">Selecione</option>
+                  {produtos.map(p => <option key={p.id} value={p.id}>{p.codigo} - {p.descricao}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tipo Movimentação</label>
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.tipoMov} onChange={e => setFormData({...formData, tipoMov: e.target.value})}>
+                    <option value="">Selecione</option>
+                    <option value="entrada">Entrada (Compra)</option>
+                    <option value="saida">Saída (Venda)</option>
+                    <option value="devolucao">Devolução (Retorno ao Estoque)</option>
+                    <option value="Produção">Produção</option>
+                    <option value="Transferência">Transferência</option>
                   </select>
-                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.galpaoId || ''} onChange={e => setFormData({...formData, galpaoId: e.target.value})}>
-                    <option value="">Selecionar Galpão</option>
-                    {galpoes.map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
-                  </select>
                 </div>
-                <input type="number" placeholder="Estoque Mínimo" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.min || ''} onChange={e => setFormData({...formData, min: e.target.value})} />
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="number" step="0.001" placeholder="Peso Unitário (kg)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.pesoUnit || ''} onChange={e => setFormData({...formData, pesoUnit: e.target.value})} />
-                  <input type="number" step="0.001" placeholder="Valor Unitário (R$)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.valorUnit || ''} onChange={e => setFormData({...formData, valorUnit: e.target.value})} />
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Quantidade</label>
+                  <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.quantidade} onChange={e => setFormData({...formData, quantidade: e.target.value})} />
                 </div>
-              </>
-            )}
-            {activeTab === 'fornecedores' && (
-              <>
-                <input placeholder="Nome da Empresa" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} />
-                <input placeholder="Telefone" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.telefone || ''} onChange={e => setFormData({...formData, telefone: e.target.value})} />
-                <input placeholder="Email" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} />
-              </>
-            )}
-            {activeTab === 'funcionarios' && (
-              <>
-                <input placeholder="Nome Completo (Login)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} />
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="password" placeholder={editingItem ? "Nova Senha (opcional)" : "Senha de Acesso"} className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.senha || ''} onChange={e => setFormData({...formData, senha: e.target.value})} />
-                  <input placeholder="Nº Registro" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.registro || ''} onChange={e => setFormData({...formData, registro: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Peso Total (kg)</label>
+                  <input type="number" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.peso} onChange={e => setFormData({...formData, peso: e.target.value})} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <input placeholder="Função" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.funcao || ''} onChange={e => setFormData({...formData, funcao: e.target.value})} />
-                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nivel || ''} onChange={e => setFormData({...formData, nivel: e.target.value})}>
-                    <option value="">Nível de Acesso</option>
-                    <option value="admin">Administrador</option>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nota Fiscal</label>
+                  <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nf} onChange={e => setFormData({...formData, nf: e.target.value})} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Responsável</label>
+                <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.responsavel} onChange={e => setFormData({...formData, responsavel: e.target.value})}>
+                  <option value="">Selecione</option>
+                  {funcionarios.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
+                </select>
+              </div>
+            </div>
+          ) : activeTab === 'fornecedores' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nome</label>
+                <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Telefone</label>
+                <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Email</label>
+                <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+              </div>
+            </div>
+          ) : activeTab === 'funcionarios' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nome</label>
+                <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Registro</label>
+                  <input className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.registro} onChange={e => setFormData({...formData, registro: e.target.value})} />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nível</label>
+                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nivel} onChange={e => setFormData({...formData, nivel: e.target.value})}>
                     <option value="funcionario">Funcionário</option>
+                    <option value="admin">Administrador</option>
                   </select>
                 </div>
-              </>
-            )}
-            {activeTab === 'galpoes' && (
-              <>
-                <input placeholder="Nome do Galpão" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nome || ''} onChange={e => setFormData({...formData, nome: e.target.value})} />
-                <textarea placeholder="Descrição / Localização" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.descricao || ''} onChange={e => setFormData({...formData, descricao: e.target.value})} />
-              </>
-            )}
-            {activeTab === 'internas' && (
-              <>
-                <div className="bg-blue-50 p-4 rounded-xl mb-4 border border-blue-100">
-                  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-3">Configuração da Movimentação</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <select 
-                      className="w-full p-3 bg-white border rounded-xl font-bold text-slate-700" 
-                      value={formData.tipoMov || ''} 
-                      onChange={e => setFormData({...formData, tipoMov: e.target.value})}
-                    >
-                      <option value="">Tipo de Operação</option>
-                      <option value="entrada">Entrada (Externa)</option>
-                      <option value="saida">Saída (Externa)</option>
-                      <option value="Produção">Para Produção (Interna)</option>
-                      <option value="Transferência">Transferência (Interna)</option>
-                    </select>
-                    <select className="w-full p-3 bg-white border rounded-xl" value={formData.produtoId || ''} onChange={e => setFormData({...formData, produtoId: e.target.value})}>
-                      <option value="">Selecione o Produto</option>
-                      {produtos.map(p => <option key={p.id} value={p.id}>{p.descricao} (Saldo: {p.estoque})</option>)}
-                    </select>
-                  </div>
+              </div>
+              {!editingItem && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Senha</label>
+                  <input type="password" title="Senha" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.senha} onChange={e => setFormData({...formData, senha: e.target.value})} />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <input type="number" placeholder="Quantidade" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.quantidade || ''} onChange={e => setFormData({...formData, quantidade: e.target.value})} />
-                  <input type="number" step="0.001" placeholder="Peso Total (kg)" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.peso || ''} onChange={e => setFormData({...formData, peso: e.target.value})} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <select className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.responsavel || ''} onChange={e => setFormData({...formData, responsavel: e.target.value})}>
-                    <option value="">Selecione o Responsável</option>
-                    {funcionarios.map(f => <option key={f.id} value={f.nome}>{f.nome}</option>)}
-                  </select>
-                  {(formData.tipoMov === 'entrada' || formData.tipoMov === 'saida') ? (
-                    <input placeholder="Nota Fiscal" className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.nf || ''} onChange={e => setFormData({...formData, nf: e.target.value})} />
-                  ) : (
-                    <input placeholder={formData.tipoMov === 'Transferência' ? "Galpão de Destino" : "Destino / Observação"} className="w-full p-3 bg-slate-50 border rounded-xl" value={formData.destino || ''} onChange={e => setFormData({...formData, destino: e.target.value})} />
-                  )}
-                </div>
-
-                {userRole === 'admin' && formData.tipoMov === 'entrada' && (
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mt-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Dados Financeiros</p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="relative">
-                        <span className="absolute left-3 top-3 text-slate-400 text-sm">R$</span>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          placeholder="Valor Unitário" 
-                          className="w-full p-3 pl-10 bg-white border rounded-xl" 
-                          value={formData.valorUnit || ''} 
-                          onChange={e => setFormData({...formData, valorUnit: e.target.value})} 
-                        />
-                      </div>
-                      <div className="flex items-center px-4 bg-white border rounded-xl">
-                        <div>
-                          <p className="text-[10px] text-slate-400 uppercase">Valor Total Estimado</p>
-                          <p className="font-bold text-slate-700">R$ {( (parseFloat(formData.valorUnit) || 0) * (parseInt(formData.quantidade) || 0) ).toFixed(3)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </Modal>
-        )}
-      </main>
+              )}
+            </div>
+          ) : null}
+        </Modal>
+      )}
     </div>
   );
 }
